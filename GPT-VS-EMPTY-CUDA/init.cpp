@@ -1,13 +1,13 @@
 #include "init.h"
 #include <stdio.h>
 
-void procImg(double* g_can, int* g_ang, double* g_nor, char* g_HoG, char* sHoG, unsigned char* image1)
+void procImg(double* g_can, int* g_ang, double* g_nor, char* sHoG, unsigned char* image1)
 {
 #if isGPU == 0
 	defcan2(g_can, image1);         /* canonicalization */
 	roberts8(g_ang, g_nor, image1); /* 8-quantization of gradient dir */
 	// calHoG(g_ang, g_HoG);				/* calculate sHOG pattern */
-	//smplHoG64(sHoG, g_ang, g_nor); /* Numberring the sHOG pattern to sHoGNUMBER */
+	smplHoG64(sHoG, g_ang, g_nor); /* Numberring the sHOG pattern to sHoGNUMBER */
 #elif isGPU == 1
 	// Shitian NI
 #endif
@@ -71,7 +71,7 @@ void roberts8(int* g_ang, double* g_nor, unsigned char* image1)
 	{
 		for (x = 0; x < COL; x++)
 		{
-			g_ang[y*COL+x] = 8;
+			g_ang[y*COL+x] = -1;
 			g_nor[y*COL+x] = 0.0;
 		}
 	}
@@ -131,7 +131,7 @@ void smplHoG64(char* sHoG, int* g_ang, double* g_nor)
 	{
 		for (x = 0; x < COL - 4; x++)
 		{
-			sHoG[y*(ROW-4)+x] = -1;
+			sHoG[y*(COL-4)+x] = -1;
 			// initialize
 			for (dir = 0; dir < 8; dir++)
 			{
@@ -168,10 +168,10 @@ void smplHoG64(char* sHoG, int* g_ang, double* g_nor)
 			// calculate the direction
 			if (HoG[0] > SHoGTHRE)
 			{
-				sHoG[y*(ROW-4)+x] = (char)HoGIdx[0];
+				sHoG[y*(COL-4)+x] = (char)HoGIdx[0];
 				if (HoG[1] > SHoGSECONDTHRE * HoG[0])
 				{
-					sHoG[y+(ROW-4)+x] = sHoG[y*(ROW-4)+x] * 10 + (char)HoGIdx[1];
+					sHoG[y*(COL-4)+x] = sHoG[y*(COL-4)+x] * 10 + (char)HoGIdx[1];
 				}
 			}
 			// printf("<%d, %d> HoG = %d \n", y, x, sHoG[y][x]);

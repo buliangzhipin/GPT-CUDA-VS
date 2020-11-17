@@ -45,46 +45,22 @@ int main()
 	load_image_file(fileName, image1, COL, ROW);
 
 	int *g_ang2 = new int[ROW*COL];	  // direction of gradients
-	char *g_HoG2 = new char[ROW*COL*8]; // HoG feature of the images
 	char *sHoG2 = new char[(ROW - 4)*(COL - 4)];
 	double *g_nor2 = new double[ROW*COL]; // norm of gradients
 	double *g_can2 = new double[ROW*COL]; // canonicalized images
-	procImg(g_can2, g_ang2, g_nor2, g_HoG2, sHoG2, image1);
+	procImg(g_can2, g_ang2, g_nor2, sHoG2, image1);
 #pragma endregion Load_And_Proc_Image
 
 
 	//積分画像計算　CUDA化する必要あります。
 #pragma region Calculate_Inte
-	int* inteAng = new int[ROWINTE*COLINTE*9];
-	double* inteCanDir = new double[ROWINTE*COLINTE*9];
-	double* inteDx2Dir = new double[ROWINTE*COLINTE*9];
-	double* inteDy2Dir = new double[ROWINTE*COLINTE*9];
-	calInte(g_can2, g_ang2, inteAng, inteCanDir, inteDx2Dir, inteDy2Dir);
+	int* inteAng = new int[ROWINTE*COLINTE*64];
+	double* inteCanDir = new double[ROWINTE*COLINTE*64];
+	double* inteDx2Dir = new double[ROWINTE*COLINTE*64];
+	double* inteDy2Dir = new double[ROWINTE*COLINTE*64];
+	calInte64(g_can2, sHoG2, inteAng, inteCanDir, inteDx2Dir, inteDy2Dir);
 #pragma endregion Calculate_Inte
-	ofstream inteAngFile("inteAngWindows.txt");
-	ofstream gAngFile("gAngWindows.txt");
 
-	for (int y = 0; y < ROWINTE; y++)
-	{
-		for (int x = 0; x < COLINTE; x++)
-		{
-			for (int d = 0; d < 9; d++)
-			{
-				inteAngFile << inteAng[y*COLINTE + x + d * ROWINTE*COLINTE] << " ";
-			}
-		}
-		inteAngFile << endl;
-	}
-	for (int y = 0; y < ROW; y++)
-	{
-		for (int x = 0; x < COL; x++)
-		{
-			gAngFile << g_ang2[y*COL + x] << " ";
-		}
-		gAngFile << endl;
-	}
-	gAngFile.close();
-	inteAngFile.close();
 
 
 
@@ -107,23 +83,11 @@ int main()
 	//save_image_file(fileName, image2, COL, ROW);
 
 	int *g_ang1 = new int[ROW*COL];	  // direction of gradients
-	char *g_HoG1 = new char[ROW*COL * 8]; // HoG feature of the images
 	char *sHoG1 = new char[(ROW - 4)*(COL - 4)];
 	double *g_nor1 = new double[ROW*COL]; // norm of gradients
 	double *g_can1 = new double[ROW*COL]; // canonicalized images
-	procImg(g_can1, g_ang1, g_nor1, g_HoG1, sHoG1, image2); 
+	procImg(g_can1, g_ang1, g_nor1, sHoG1, image2); 
 #pragma endregion Load_And_Proc_Image
-	//ofstream outputfile("text.txt");
-
-	//for (int y = 0; y < ROW; y++)
-	//{
-	//	for (int x = 0; x < COL; x++)
-	//	{
-	//		outputfile << g_ang1[y*COL + x] << " ";
-	//	}
-	//	outputfile << endl;
-	//}
-	//outputfile.close();
 
 #pragma region Calculate_Initial_Correlation
 	/* calculate the initial correlation */
@@ -138,12 +102,41 @@ int main()
 	old_cor0 = old_cor1;
 #pragma endregion Calculate_Initial_Correlation
 
+	ofstream inteAngFile("inteAngWindows.txt");
+	ofstream gAngFile("gAngWindows.txt");
+
+	//for (int y = 0; y < ROWINTE; y++)
+	//{
+	//	for (int x = 0; x < COLINTE; x++)
+	//	{
+	//		for (int d = 0; d < 9; d++)
+	//		{
+	//			inteAngFile << inteAng[y*COLINTE + x + d * ROWINTE*COLINTE] << " ";
+	//		}
+	//	}
+	//	inteAngFile << endl;
+	//}
+	for (int y = 0; y < ROW - 4; y++)
+	{
+		for (int x = 0; x < COL - 4; x++)
+		{
+			//inteAngFile << sHoG1[y*(COL - 4) + x] << " ";
+			gAngFile << (int)sHoG1[y*(COL - 4) + x] << " ";
+		}
+		gAngFile << endl;
+		//inteAngFile << endl;
+	}
+	gAngFile.close();
+	inteAngFile.close();
+
 	//Initial dnn
 	double d2 = 0.0;
-	double dnn = WNNDEGD * winpatInte(g_ang1, inteAng);
+	double dnn = WNNDEsHoGD * sHoGpatInte(sHoG1, inteAng);
+
 	double* gwt = new double[ROW*COL];
 
 	cout << dnn << endl;
+	cout << "test" << endl;
 
 	//time
 	int margine = CANMARGIN / 2;
@@ -156,21 +149,21 @@ int main()
 				gwt[y*COL+x] = pow(gk[y][x], 1.0 / var);
 
 		//Match
-		gptcorInte(g_ang1, g_can1, g_ang2, g_can2, gwt, inteCanDir, inteDx2Dir, inteDy2Dir, dnn, gpt1);
+		gptcorsHoGInte(sHoG1, g_can1, sHoG2, g_can2, gwt, inteCanDir, inteDx2Dir, inteDy2Dir, dnn, gpt1);
 		/* transform the test image and update g_can1, g_ang1, g_nor1, g_HoG1, sHoG1 */
 		for (int y = 0; y < ROW2; y++)
 			for (int x = 0; x < COL2; x++)
 				image1[y*COL2+x] = (unsigned char)image3[y*COL2+x];
 		bilinear_normal_projection(gpt1, COL, ROW, COL2, ROW2, image1, image2);
-		procImg(g_can1, g_ang1, g_nor1, g_HoG1, sHoG1, image2);
+		procImg(g_can1, g_ang1, g_nor1, sHoG1, image2);
 
 		/* update correlation */
 		new_cor1 = 0.0;
 		for (int y = margine; y < ROW - margine; y++)
 			for (int x = margine; x < COL - margine; x++)
 				new_cor1 += g_can1[y*COL+x] * g_can2[y*COL+x];
-
-		dnn = WNNDEGD * winpatInte(g_ang1, inteAng);
+		
+		dnn = WNNDEsHoGD * sHoGpatInte(sHoG1, inteAng);
 		printf("iter = %d, new col. = %f dnn = %f  var = %f (d2 = %f) \n", iter, new_cor1, dnn, 1 / var, d2);
 	}
 

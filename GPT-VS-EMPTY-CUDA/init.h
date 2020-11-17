@@ -4,7 +4,7 @@
 #include "parameter.h"
 #include "utility.h"
 
-void procImg(double* g_can, int* g_ang, double* g_nor, char* g_HoG, char* sHoG, unsigned char* image1);
+void procImg(double* g_can, int* g_ang, double* g_nor, char* sHoG, unsigned char* image1);
 void roberts8(int* g_ang, double* g_nor, unsigned char* image1);
 void defcan2(double* g_can, unsigned char* image1);
 void smplHoG64(char* sHoG, int* g_ang, double* g_nor);

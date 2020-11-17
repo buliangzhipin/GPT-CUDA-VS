@@ -74,34 +74,56 @@ void solveLEq(double inMat[NI][NI + 1])
 	}
 }
 
-void calInte(double* g_can, int* g_ang, int* inteAng,
+int sHoG2Idx(char sHoG)
+{
+	int tempValue = sHoG;
+	int quot, remd;
+	if (tempValue == -1)
+		return -1;
+	if (tempValue < 10)
+		return tempValue - 1;
+
+	quot = tempValue / 10;
+	remd = tempValue % 10;
+	if (quot > remd)
+		return (8 + (quot - 1) * 7 + remd) - 1;
+	else
+		return (8 + (quot - 1) * 7 + remd - 1) - 1;
+}
+
+void calInte64(double* g_can, char* sHOG, int* inteAng,
 	double* inteCanDir, double* inteDx2Dir, double* inteDy2Dir)
 {
-	int angInte[9];
+	int x, y, d, xInte, yInte, angInte[64];
 	int maxWinP = MAXWINDOWSIZE + 1;
-	double canDirInte[9], dx2DirInte[9], dy2DirInte[9];
+	double canDirInte[64], dx2DirInte[64], dy2DirInte[64];
 
 	/* Set init data */
-	for (int y = 0; y < ROWINTE; ++y)
+	for (y = 0; y < ROWINTE; ++y)
 	{
-		for (int x = 0; x < COLINTE; ++x)
+		for (x = 0; x < COLINTE; ++x)
 		{
-			for (int d = 0; d < 9; ++d)
+			for (d = 0; d < 64; ++d)
 			{
-				inteAng[y*COLINTE + x + d * ROWINTE*COLINTE] = 0;
-				inteCanDir[y*COLINTE + x + d * ROWINTE*COLINTE] = 0.0;
-				inteDx2Dir[y*COLINTE + x + d * ROWINTE*COLINTE] = 0.0;
-				inteDy2Dir[y*COLINTE + x + d * ROWINTE*COLINTE] = 0.0;
+				int location = y * COLINTE + x + d * ROWINTE*COLINTE;
+				inteAng[location] = 0;
+				inteCanDir[location] = 0.0;
+				inteDx2Dir[location] = 0.0;
+				inteDy2Dir[location] = 0.0;
 			}
 		}
 	}
-	for (int y = 0; y < ROW; ++y)
+
+	for (y = 2; y < ROW - 2; ++y)
 	{
-		for (int x = 0; x < COL; ++x)
+		for (x = 2; x < COL - 2; ++x)
 		{
-			int d = g_ang[y*COL + x];
-			int xInte = x + maxWinP;
-			int yInte = y + maxWinP;
+			if (sHOG[(y - 2)*(COL-4)+x - 2] == -1)
+				continue;
+			else
+				d = sHoG2Idx(sHOG[(y - 2)*(COL-4)+x - 2]);
+			xInte = x + maxWinP;
+			yInte = y + maxWinP;
 			int location = yInte * COLINTE + xInte + d * ROWINTE*COLINTE;
 			inteAng[location] = 1;
 			inteCanDir[location] = g_can[y*COL + x];
@@ -111,18 +133,18 @@ void calInte(double* g_can, int* g_ang, int* inteAng,
 	}
 
 	/* Calculate Integral for x direction */
-	for (int yInte = maxWinP; yInte < ROW + maxWinP; ++yInte)
+	for (yInte = maxWinP; yInte < ROW + maxWinP; ++yInte)
 	{
-		for (int d = 0; d < 9; ++d)
+		for (d = 0; d < 64; ++d)
 		{
 			angInte[d] = 0;
 			canDirInte[d] = 0.0;
 			dx2DirInte[d] = 0.0;
 			dy2DirInte[d] = 0.0;
 		}
-		for (int xInte = maxWinP; xInte < COLINTE; ++xInte)
+		for (xInte = maxWinP; xInte < COLINTE; ++xInte)
 		{
-			for (int d = 0; d < 9; ++d)
+			for (d = 0; d < 64; ++d)
 			{
 				int location = yInte * COLINTE + xInte + d * ROWINTE*COLINTE;
 				angInte[d] = inteAng[location] = inteAng[location] + angInte[d];
@@ -134,18 +156,18 @@ void calInte(double* g_can, int* g_ang, int* inteAng,
 	}
 
 	/* Calculate Integral for y direction */
-	for (int xInte = maxWinP; xInte < COLINTE; ++xInte)
+	for (xInte = maxWinP; xInte < COLINTE; ++xInte)
 	{ /* 後側余裕も積分した後で0ではないので，COLINTE */
-		for (int d = 0; d < 9; ++d)
+		for (d = 0; d < 64; ++d)
 		{
 			angInte[d] = 0;
 			canDirInte[d] = 0.0;
 			dx2DirInte[d] = 0.0;
 			dy2DirInte[d] = 0.0;
 		}
-		for (int yInte = maxWinP; yInte < ROWINTE; ++yInte)
+		for (yInte = maxWinP; yInte < ROWINTE; ++yInte)
 		{
-			for (int d = 0; d < 9; ++d)
+			for (d = 0; d < 64; ++d)
 			{
 				int location = yInte * COLINTE + xInte + d * ROWINTE*COLINTE;
 				angInte[d] = inteAng[location] = inteAng[location] + angInte[d];
@@ -157,7 +179,7 @@ void calInte(double* g_can, int* g_ang, int* inteAng,
 	}
 }
 
-double winpatInte(int* g_ang1, int* inteAng)
+double sHoGpatInte(char* sHoG1, int* inteAng)
 {
 	int x1, y1, wN, ang1, dnn = 0, count = 0;
 	int maxWinP = MAXWINDOWSIZE + 1;
@@ -174,21 +196,22 @@ double winpatInte(int* g_ang1, int* inteAng)
 		}
 	}
 
-	for (y1 = MARGINE; y1 < ROW - MARGINE; ++y1)
+	for (y1 = MARGINE + 2; y1 < ROW - MARGINE - 2; ++y1)
 	{
-		for (x1 = MARGINE; x1 < COL - MARGINE; ++x1)
+		for (x1 = MARGINE + 2; x1 < COL - MARGINE - 2; ++x1)
 		{
-			ang1 = g_ang1[y1*COL + x1];
-			//if ((ang1 = g_ang1[y1*COL + x1]) != 8)
-			//{
+;
+			if ((ang1 = sHoG2Idx(sHoG1[(y1-2)*(COL - 4) + x1-2])) != -1)
+			{
 				for (wN = 0; wN < nDnnL; ++wN)
 				{
 					pPos = maxWinP + dnnL[wN];
 					mPos = MAXWINDOWSIZE - dnnL[wN];
 					sectInte = inteAng[(y1 + pPos)*COLINTE + x1 + pPos + ang1 * ROWINTE*COLINTE]
-						- inteAng[(y1 + pPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE] 
-						- inteAng[(y1 + mPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] 
+						- inteAng[(y1 + pPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE]
+						- inteAng[(y1 + mPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE]
 						+ inteAng[(y1 + mPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE];
+
 					if (sectInte > 0)
 					{
 						//						printf("(%d, %d) sectInte = %d dnn = %d \n", x1, y1, sectInte, dnnL[wN]);
@@ -197,10 +220,10 @@ double winpatInte(int* g_ang1, int* inteAng)
 						break;
 					}
 				}
-			//}
+			}
 		}
 	}
-	printf("count = %d dnn = %d \n", count, dnn);
+	//printf("count = %d dnn = %d \n", count, dnn);
 	if (count == 0)
 		ddnn = MAXWINDOWSIZE;
 	else
@@ -208,8 +231,8 @@ double winpatInte(int* g_ang1, int* inteAng)
 	return ddnn;
 }
 
-void gptcorInte(int* g_ang1, double* g_can1,
-	int* g_ang2, double* g_can2, double* gwt, double* inteCanDir,
+void gptcorsHoGInte(char* sHoG1, double* g_can1,
+	char* sHoG2, double* g_can2, double* gwt, double* inteCanDir,
 	double* inteDx2Dir, double* inteDy2Dir, double dnn, double gpt[3][3])
 {
 	/* determination of optimal GAT components */
@@ -262,14 +285,17 @@ void gptcorInte(int* g_ang1, double* g_can1,
 	gx1x1x2 = gx1x1y2 = gx1y1x2 = gx1y1y2 = gy1y1x2 = gy1y1y2 = 0.0;
 	gx1x1x1x1 = gx1x1x1y1 = gx1x1y1y1 = gx1y1y1y1 = gy1y1y1y1 = 0.0;
 
-	for (y1 = MARGINE; y1 < ROW - MARGINE; y1++)
+	for (y1 = MARGINE + 2; y1 < ROW - MARGINE - 2; y1++)
 	{
 		dy1 = y1 - CY;
-		for (x1 = MARGINE; x1 < COL - MARGINE; x1++)
+		for (x1 = MARGINE + 2; x1 < COL - MARGINE - 2; x1++)
 		{
 			dx1 = x1 - CX;
 
-			ang1 = g_ang1[y1*COL + x1];
+			ang1 = sHoG2Idx(sHoG1[(y1 - 2)*(COL - 4) + x1 - 2]);
+			if (ang1 == -1)
+				continue;
+			// printf("ang1 = %d\n", ang1);
 #ifdef TWOWINDOW
 			t0 = tx2 = ty2 = COEFGS;
 			t0 *= inteCanDir[y1 + pPosL][x1 + pPosL][ang1] - inteCanDir[y1 + pPosL][x1 + mPosL][ang1] - inteCanDir[y1 + mPosL][x1 + pPosL][ang1] + inteCanDir[y1 + mPosL][x1 + mPosL][ang1];

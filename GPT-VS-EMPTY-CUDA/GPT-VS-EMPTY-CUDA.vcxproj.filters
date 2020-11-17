@@ -45,4 +45,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="stdInte.cu">
+      <Filter>源文件</Filter>
+    </CudaCompile>
+  </ItemGroup>
 </Project>

@@ -1,5 +1,7 @@
-#include "init.h"
 #include <stdio.h>
+
+#include "init.h"
+#include "init_cuda.h"
 
 void procImg(double* g_can, int* g_ang, double* g_nor, char* sHoG, unsigned char* image1)
 {
@@ -9,7 +11,9 @@ void procImg(double* g_can, int* g_ang, double* g_nor, char* sHoG, unsigned char
 	// calHoG(g_ang, g_HoG);				/* calculate sHOG pattern */
 	smplHoG64(sHoG, g_ang, g_nor); /* Numberring the sHOG pattern to sHoGNUMBER */
 #elif isGPU == 1
-	// Shitian NI
+	// Morris Lee
+	cuda_procImg(g_can, g_ang, g_nor, image1, 1);
+	smplHoG64(sHoG, g_ang, g_nor);
 #endif
 }
 

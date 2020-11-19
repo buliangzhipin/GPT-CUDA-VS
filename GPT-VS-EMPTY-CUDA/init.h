@@ -12,3 +12,5 @@ void bilinear_normal_projection(double gpt[3][3], int x_size1, int y_size1, int 
 	unsigned char* image1, unsigned char* image2);
 void bilinear_normal_inverse_projection(double gpt[3][3], int x_size1, int y_size1, int x_size2, int y_size2,
 	unsigned char* image1, unsigned char* image2);
+
+

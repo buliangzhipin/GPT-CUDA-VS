@@ -1,8 +1,10 @@
 #pragma once
 
+#define isGPU 1
+
+
 #define DATATYPE 2
 #define IMGDIR "."
-#define isGPU 0
 #define MAXITER 100 // Maximum iteration times
 #define MAXNR 5     // Maximum Newton-Raphson iterations
 

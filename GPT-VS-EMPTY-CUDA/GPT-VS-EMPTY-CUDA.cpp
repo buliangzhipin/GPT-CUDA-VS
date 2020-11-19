@@ -120,13 +120,13 @@ int main()
 	printf("Original cor. = %f\n", org_cor);
 	old_cor0 = old_cor1;
 #pragma endregion Calculate_Initial_Correlation
-
+/*
 	SaveData<double>(g_can2, variableChar(gCan1), COL, ROW);
 	SaveData<double>(g_nor2, variableChar(gNor2), COL, ROW);
 	SaveData<int>(g_ang2, variableChar(gAng2), COL, ROW);
 	SaveData<double>(g_can1, variableChar(gCan1), COL, ROW);
 	SaveData<double>(g_nor1, variableChar(gNor1), COL, ROW);
-	SaveData<int>(g_ang1, variableChar(gAng1), COL, ROW);
+	SaveData<int>(g_ang1, variableChar(gAng1), COL, ROW);*/
 	
 	//Initial dnn
 	double d2 = 0.0;
@@ -165,11 +165,11 @@ int main()
 			//		new_cor1 += g_can1[y*COL+x] * g_can2[y*COL+x];
 		
 			dnn = WNNDEsHoGD * sHoGpatInte(sHoG1, inteAng);
-			printf("iter = %d, new col. = %f dnn = %f  var = %f (d2 = %f) \n", iter, new_cor1, dnn, 1 / var, d2);
-			end = clock();		//程序结束用时
-			double endtime = (double)(end - start) / CLOCKS_PER_SEC;
-			cout << "Total time:" << endtime * 1000 << "ms" << endl;	//ms为单位
+			//printf("iter = %d, new col. = %f dnn = %f  var = %f (d2 = %f) \n", iter, new_cor1, dnn, 1 / var, d2);
 		}
+		end = clock();		//程序结束用时
+		double endtime = (double)(end - start) / CLOCKS_PER_SEC;
+		cout << "Total time:" << endtime * 1000 << "ms" << endl;	//ms为单位
 
 
 		for (int i = 0; i < 3; i++)
@@ -182,7 +182,8 @@ int main()
 		}
 
 		delete image1;
-	return 0;
+		system("pause");
+		return 0;
 }
 
 void initGpt2(double gpt[3][3], double alpha, double beta, double b1, double b2, double rotation)

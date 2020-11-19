@@ -175,6 +175,7 @@ void cuda_procImg(double* g_can, int* g_ang, double* g_nor, unsigned char* image
 	if(copy == 1)
 	cudaMemcpy(d_image1_ptr, image1, ROW*COL * sizeof(unsigned char), cudaMemcpyHostToDevice);
 
+
 	setGPUSize(COL,ROW,TPB,TPB);
 	cuda_defcan1 << <numBlock, numThread >> > ();
 	cuda_defcan2 << <numBlock, numThread >> > ();

@@ -1,6 +1,6 @@
 #pragma once
 
-#define isGPU 1
+#define isGPU 0
 
 
 #define DATATYPE 2

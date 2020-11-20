@@ -125,6 +125,23 @@ void roberts8(int* g_ang, double* g_nor, unsigned char* image1)
 	}
 }
 
+//int sHoG2Idx(char sHoG)
+//{
+//	int tempValue = sHoG;
+//	int quot, remd;
+//	if (tempValue == -1)
+//		return -1;
+//	if (tempValue < 10)
+//		return tempValue - 1;
+//
+//	quot = tempValue / 10;
+//	remd = tempValue % 10;
+//	if (quot > remd)
+//		return (quot * 7 + remd);
+//	else
+//		return ( quot * 7 + remd - 1) ;
+//}
+
 void smplHoG64(char* sHoG, int* g_ang, double* g_nor)
 {
 	int x, y, dx, dy, dir;
@@ -140,7 +157,7 @@ void smplHoG64(char* sHoG, int* g_ang, double* g_nor)
 			for (dir = 0; dir < 8; dir++)
 			{
 				HoG[dir] = 0.0;
-				HoGIdx[dir] = dir + 1;
+				HoGIdx[dir] = dir;
 			}
 			// calculate HoG
 			for (dy = y; dy < y + 5; dy++)
@@ -148,7 +165,7 @@ void smplHoG64(char* sHoG, int* g_ang, double* g_nor)
 				for (dx = x; dx < x + 5; dx++)
 				{
 					if (g_ang[dy*COL+dx] == -1)
-						break;
+						continue;
 					HoG[g_ang[dy*COL+dx]] += g_nor[dy*COL+dx];
 				}
 			}

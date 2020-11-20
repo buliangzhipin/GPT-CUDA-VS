@@ -81,14 +81,11 @@ int sHoG2Idx(char sHoG)
 	if (tempValue == -1)
 		return -1;
 	if (tempValue < 10)
-		return tempValue - 1;
+		return tempValue;
 
 	quot = tempValue / 10;
 	remd = tempValue % 10;
-	if (quot > remd)
-		return (8 + (quot - 1) * 7 + remd) - 1;
-	else
-		return (8 + (quot - 1) * 7 + remd - 1) - 1;
+	return (quot*8 + remd);
 }
 
 void calInte64(double* g_can, char* sHOG, int* inteAng,

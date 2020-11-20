@@ -8,8 +8,8 @@
 
 #pragma region DeviceMemoryPointer
 void *d_cuda_defcan_vars_ptr;
-void *d_image1_ptr;
-void *d_g_can1_ptr, *d_g_ang1_ptr, *d_g_nor1_ptr;
+void *d_image1_ptr,*d_image2_ptr;
+void *d_g_can1_ptr, *d_g_ang1_ptr, *d_g_nor1_ptr,*d_gpt_ptr;
 #pragma endregion DeviceMemoryPointer
 
 int iDivUp(int hostPtr, int b) { return ((hostPtr % b) != 0) ? (hostPtr / b + 1) : (hostPtr / b); };
@@ -168,15 +168,21 @@ void procImageInitial()
 	gpuStop()	
 }
 
+void bilinearInitial()
+{
+	gpuErrchk(cudaGetSymbolAddress(&d_gpt_ptr, d_gpt));
+	gpuErrchk(cudaGetSymbolAddress(&d_image2_ptr, d_image2));
+	gpuStop();
+}
 
 void cuda_procImg(double* g_can, int* g_ang, double* g_nor, unsigned char* image1,int copy) {
-	cudaMemset(d_cuda_defcan_vars_ptr, 0, 3 * sizeof(double));
 
 	if(copy == 1)
 	cudaMemcpy(d_image1_ptr, image1, ROW*COL * sizeof(unsigned char), cudaMemcpyHostToDevice);
 
 
 	setGPUSize(COL,ROW,TPB,TPB);
+	cudaMemset(d_cuda_defcan_vars_ptr, 0, 3 * sizeof(double));
 	cuda_defcan1 << <numBlock, numThread >> > ();
 	cuda_defcan2 << <numBlock, numThread >> > ();
 	cuda_roberts8 << <numBlock, numThread >> > ();
@@ -187,57 +193,71 @@ void cuda_procImg(double* g_can, int* g_ang, double* g_nor, unsigned char* image
 
 }
 
-// main function
-//int main(void)
-//{
-//	bool GPU = true;
-//
-//	int N = 1000000;
-//	float *host_x, *host_y, *dev_x, *dev_y;
-//
-//	// CPU側の領域確保
-//	host_x = (float*)malloc(N * sizeof(float));
-//	host_y = (float*)malloc(N * sizeof(float));
-//
-//	// 乱数値を入力する
-//	for (int i = 0; i < N; i++) {
-//		host_x[i] = rand();
-//	}
-//
-//	int start = clock();
-//
-//	if (GPU == true) {
-//
-//		// デバイス(GPU)側の領域確保
-//		cudaMalloc(&dev_x, N * sizeof(float));
-//		cudaMalloc(&dev_y, N * sizeof(float));
-//
-//		// CPU⇒GPUのデータコピー
-//		cudaMemcpy(dev_x, host_x, N * sizeof(float), cudaMemcpyHostToDevice);
-//
-//		// GPUで計算
-//		gpu_function << <(N + 255) / 256, 256 >> > (dev_x, dev_y);
-//
-//		// GPU⇒CPUのデータコピー
-//		cudaMemcpy(host_y, dev_y, N * sizeof(float), cudaMemcpyDeviceToHost);
-//
-//	}
-//	else {
-//		// CPUで計算
-//		cpu_function(N, host_x, host_y);
-//	}
-//
-//	int end = clock();
-//
-//	// 計算が正しく行われているか確認
-//	float sum = 0.0f;
-//	for (int j = 0; j < N; j++) {
-//		sum += host_y[j];
-//	}
-//	std::cout << sum << std::endl;
-//
-//	// 最後に計算時間を表示
-//	std::cout << end - start << "[ms]" << std::endl;
-//
-//	return 0;
-//}
+__global__ void cuda_calc_bilinear_normal_inverse_projection(int x_size1, int y_size1, int x_size2, int y_size2) {
+	int x = blockIdx.x*blockDim.x + threadIdx.x;
+	int y = blockIdx.y*blockDim.y + threadIdx.y;
+	if ((y >= y_size1) || (x >= x_size1)) {
+		return;
+	}
+	int cx, cy, cx2, cy2;
+	if (y_size1 == ROW) {
+		cx = CX, cy = CY;
+		cx2 = CX2, cy2 = CY2;
+	}
+	else {
+		cx = CX2, cy = CY2;
+		cx2 = CX, cy2 = CY;
+	}
+
+	double inVect[3], outVect[3];
+	double x_new, y_new, x_frac, y_frac;
+	double gray_new;
+	int m, n;
+
+	inVect[2] = 1.0;
+	inVect[1] = y - cy;
+	inVect[0] = x - cx;
+
+	int i, j;
+	double sum;
+	for (i = 0; i < 3; ++i) {
+		sum = 0.0;
+		for (j = 0; j < 3; ++j) {
+			sum += d_gpt[i][j] * inVect[j];
+		}
+		outVect[i] = sum;
+	}
+
+	x_new = outVect[0] / outVect[2] + cx2;
+	y_new = outVect[1] / outVect[2] + cy2;
+	m = (int)floor(x_new);
+	n = (int)floor(y_new);
+	x_frac = x_new - m;
+	y_frac = y_new - n;
+
+	if (m >= 0 && m + 1 < x_size2 && n >= 0 && n + 1 < y_size2) {
+		gray_new = (1.0 - y_frac) * ((1.0 - x_frac) * d_image2[n][m] + x_frac * d_image2[n][m + 1])
+			+ y_frac * ((1.0 - x_frac) * d_image2[n + 1][m] + x_frac * d_image2[n + 1][m + 1]);
+		d_image1[y][x] = (unsigned char)gray_new;
+	}
+	else {
+#ifdef BACKGBLACK
+		d_image1[y][x] = BLACK;
+#else
+		d_image1[y][x] = WHITE;
+#endif
+	}
+}
+
+void cuda_bilinear_normal_inverse_projection(double gpt[3][3], int x_size1, int y_size1, int x_size2, int y_size2,unsigned char* image1,unsigned char* image2 , int initial) {
+	/* inverse projection transformation of the image by bilinear interpolation */
+
+	if (initial == 1)
+		cudaMemcpy(d_image2_ptr,image1, sizeof(unsigned char)*ROW2*COL2, cudaMemcpyHostToDevice);
+	gpuStop()
+
+
+	cudaMemcpy(d_gpt_ptr,gpt, 3 * 3 * sizeof(double), cudaMemcpyHostToDevice);
+	setGPUSize(COL, ROW, TPB, TPB);
+	cuda_calc_bilinear_normal_inverse_projection << <numBlock, numThread >> > (x_size1, y_size1, x_size2, y_size2);
+}

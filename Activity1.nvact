@@ -1,6 +1,5 @@
 ﻿<Model DefinitionId="3a3ca3f4-7ba7-4c09-a182-6ba59bf12599" DisplayName="Analysis Activity" xmlns="clr-namespace:Ark.PropertyModel;assembly=Ark">
-    <Property Name="ActivityType" Value="SystemTrace" />
-    <Property Name="Application" Value="C:\tool\GPT-VS-CUDA\GPT-VS-EMPTY-CUDA\x64\Release\GPT-VS-EMPTY-CUDA.exe" />
+    <Property Name="Application" Value="C:\tool\GPT-VS-CUDA\GPT-VS-EMPTY-CUDA\x64\Debug\GPT-VS-EMPTY-CUDA.exe" />
     <Property Name="EnableCudaApiContextAttachDetach" Value="True" />
     <Property Name="EnableCudaApiContextManagement" Value="True" />
     <Property Name="EnableCudaApiD3D10Interop" Value="True" />

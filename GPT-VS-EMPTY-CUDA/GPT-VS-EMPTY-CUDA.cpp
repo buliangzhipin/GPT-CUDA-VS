@@ -48,6 +48,7 @@ int main()
 #pragma endregion Initial_Gauss_Function
 
 	procImageInitial();
+	bilinearInitial();
 
 #pragma region Load_And_Proc_Image
 	unsigned char* image1;
@@ -60,7 +61,7 @@ int main()
 	char *sHoG2 = new char[(ROW - 4)*(COL - 4)];
 	double *g_nor2 = new double[ROW*COL]; // norm of gradients
 	double *g_can2 = new double[ROW*COL]; // canonicalized images
-	procImg(g_can2, g_ang2, g_nor2, sHoG2, image1);
+	procImg(g_can2, g_ang2, g_nor2, sHoG2, image1,1);
 #pragma endregion Load_And_Proc_Image
 
 
@@ -90,7 +91,7 @@ int main()
 	for (int y = 0; y < ROW2; y++)
 		for (int x = 0; x < COL2; x++)
 			image2[y*COL2+x] = image1[y*COL2+x];
-	bilinear_normal_projection(gpt1, COL, ROW, COL2, ROW2, image1, image2);
+	bilinear_normal_projection(gpt1, COL, ROW, COL2, ROW2, image1, image2,1);
 	sprintf(fileName, "%s/%s_init.pgm", IMGDIR, RgIMAGE);
 	//save_image_file(fileName, image2, COL, ROW);
 
@@ -100,7 +101,7 @@ int main()
 	double *g_can1 = new double[ROW*COL]; // canonicalized images
 	clock_t start1, end1;
 	start1 = clock();
-	procImg(g_can1, g_ang1, g_nor1, sHoG1, image2); 
+	procImg(g_can1, g_ang1, g_nor1, sHoG1, image2,0); 
 	end1 = clock();		//程序结束用时
 	double endtime1 = (double)(end1 - start1) / CLOCKS_PER_SEC;
 	cout << "Total time Proc:" << endtime1 * 1000 << "ms" << endl;	//ms为单位
@@ -155,17 +156,17 @@ int main()
 			for (int y = 0; y < ROW2; y++)
 				for (int x = 0; x < COL2; x++)
 					image1[y*COL2+x] = (unsigned char)image3[y*COL2+x];
-			bilinear_normal_projection(gpt1, COL, ROW, COL2, ROW2, image1, image2);
-			procImg(g_can1, g_ang1, g_nor1, sHoG1, image2);
+			bilinear_normal_projection(gpt1, COL, ROW, COL2, ROW2, image1, image2,0);
+			procImg(g_can1, g_ang1, g_nor1, sHoG1, image2,0);
 
 			/* update correlation */
 			new_cor1 = 0.0;
-			//for (int y = margine; y < ROW - margine; y++)
-			//	for (int x = margine; x < COL - margine; x++)
-			//		new_cor1 += g_can1[y*COL+x] * g_can2[y*COL+x];
+			for (int y = margine; y < ROW - margine; y++)
+				for (int x = margine; x < COL - margine; x++)
+					new_cor1 += g_can1[y*COL+x] * g_can2[y*COL+x];
 		
 			dnn = WNNDEsHoGD * sHoGpatInte(sHoG1, inteAng);
-			//printf("iter = %d, new col. = %f dnn = %f  var = %f (d2 = %f) \n", iter, new_cor1, dnn, 1 / var, d2);
+			printf("iter = %d, new col. = %f dnn = %f  var = %f (d2 = %f) \n", iter, new_cor1, dnn, 1 / var, d2);
 		}
 		end = clock();		//程序结束用时
 		double endtime = (double)(end - start) / CLOCKS_PER_SEC;

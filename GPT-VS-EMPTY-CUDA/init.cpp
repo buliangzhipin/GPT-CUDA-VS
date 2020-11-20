@@ -3,7 +3,7 @@
 #include "init.h"
 #include "init_cuda.h"
 
-void procImg(double* g_can, int* g_ang, double* g_nor, char* sHoG, unsigned char* image1)
+void procImg(double* g_can, int* g_ang, double* g_nor, char* sHoG, unsigned char* image1,int initial)
 {
 #if isGPU == 0
 	defcan2(g_can, image1);         /* canonicalization */
@@ -12,7 +12,7 @@ void procImg(double* g_can, int* g_ang, double* g_nor, char* sHoG, unsigned char
 	smplHoG64(sHoG, g_ang, g_nor); /* Numberring the sHOG pattern to sHoGNUMBER */
 #elif isGPU == 1
 	// Morris Lee
-	cuda_procImg(g_can, g_ang, g_nor, image1, 1);
+	cuda_procImg(g_can, g_ang, g_nor, image1, initial);
 	smplHoG64(sHoG, g_ang, g_nor);
 #endif
 }
@@ -184,12 +184,15 @@ void smplHoG64(char* sHoG, int* g_ang, double* g_nor)
 }
 
 void bilinear_normal_projection(double gpt[3][3], int x_size1, int y_size1, int x_size2, int y_size2,
-	unsigned char* image1, unsigned char* image2)
+	unsigned char* image1, unsigned char* image2,int initial = 1)
 {
 	/* projection transformation of the image by bilinear interpolation */
 	double inv_gpt[3][3];
 	inverse3x3(gpt, inv_gpt);
-	bilinear_normal_inverse_projection(inv_gpt, x_size1, y_size1, x_size2, y_size2, image1, image2);
+	if (isGPU == 0)
+		bilinear_normal_inverse_projection(inv_gpt, x_size1, y_size1, x_size2, y_size2, image1, image2);
+	else
+		cuda_bilinear_normal_inverse_projection(inv_gpt, x_size1, y_size1, x_size2, y_size2, image1, image2, initial);
 }
 
 void bilinear_normal_inverse_projection(double gpt[3][3], int x_size1, int y_size1, int x_size2, int y_size2,

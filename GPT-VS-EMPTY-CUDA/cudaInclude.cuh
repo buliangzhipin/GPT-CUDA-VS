@@ -31,7 +31,7 @@ __device__ unsigned char d_image1[ROW][COL];
 __device__ unsigned char d_image2[ROW2][COL2];
 
 
-__device__ double d_g_can1[ROW][COL], d_g_nor1[ROW][COL];
+__device__ double d_g_can1[ROW][COL], d_g_nor1[ROW][COL],d_gpt[3][3];
 __device__ int d_g_ang1[ROW][COL];
 //d_gk[ROW][COL], d_gwt[ROW][COL], d_g_can2[ROW][COL];
 #pragma endregion DeviceMemory

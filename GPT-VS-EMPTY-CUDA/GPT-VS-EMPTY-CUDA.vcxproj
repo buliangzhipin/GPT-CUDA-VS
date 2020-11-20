@@ -101,6 +101,8 @@
     <CudaCompile>
       <CodeGeneration>compute_61,sm_61</CodeGeneration>
       <TargetMachinePlatform>64</TargetMachinePlatform>
+      <GenerateRelocatableDeviceCode>false</GenerateRelocatableDeviceCode>
+      <FastMath>true</FastMath>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -121,6 +123,8 @@
     <CudaCompile>
       <CodeGeneration>compute_61,sm_61</CodeGeneration>
       <TargetMachinePlatform>64</TargetMachinePlatform>
+      <GenerateRelocatableDeviceCode>false</GenerateRelocatableDeviceCode>
+      <FastMath>true</FastMath>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -145,6 +149,9 @@
     <CudaCompile>
       <CodeGeneration>compute_61,sm_61</CodeGeneration>
       <TargetMachinePlatform>64</TargetMachinePlatform>
+      <GenerateRelocatableDeviceCode>false</GenerateRelocatableDeviceCode>
+      <FastMath>true</FastMath>
+      <Optimization>InheritFromHost</Optimization>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -169,6 +176,9 @@
     <CudaCompile>
       <CodeGeneration>compute_61,sm_61</CodeGeneration>
       <TargetMachinePlatform>64</TargetMachinePlatform>
+      <GenerateRelocatableDeviceCode>false</GenerateRelocatableDeviceCode>
+      <FastMath>true</FastMath>
+      <Optimization>InheritFromHost</Optimization>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -188,11 +198,12 @@
     <ClInclude Include="init.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="parameter.h" />
+    <ClInclude Include="stdInte.cuh" />
     <ClInclude Include="utility.h" />
     <ClInclude Include="stdInte.h" />
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="init.cu">
+    <CudaCompile Include="allCUDAFunc.cu">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>

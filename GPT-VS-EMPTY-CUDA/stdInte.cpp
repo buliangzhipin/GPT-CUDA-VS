@@ -1,4 +1,5 @@
 #include "stdInte.h"
+#include "stdInte.cuh"
 #include "math.h"
 #include "utility.h"
 #include <stdio.h>
@@ -74,21 +75,21 @@ void solveLEq(double inMat[NI][NI + 1])
 	}
 }
 
-int sHoG2Idx(char sHoG)
-{
-	int tempValue = sHoG;
-	int quot, remd;
-	if (tempValue == -1)
-		return -1;
-	if (tempValue < 10)
-		return tempValue;
+//int sHoG2Idx(char sHoG)
+//{
+//	int tempValue = sHoG;
+//	int quot, remd;
+//	if (tempValue == -1)
+//		return -1;
+//	if (tempValue < 10)
+//		return tempValue;
+//
+//	quot = tempValue / 10;
+//	remd = tempValue % 10;
+//	return (quot*8 + remd);
+//}
 
-	quot = tempValue / 10;
-	remd = tempValue % 10;
-	return (quot*8 + remd);
-}
-
-void calInte64(double* g_can, char* sHOG, int* inteAng,
+void calInte64(double* g_can, int* sHOG, int* inteAng,
 	double* inteCanDir, double* inteDx2Dir, double* inteDy2Dir)
 {
 	int x, y, d, xInte, yInte, angInte[64];
@@ -118,7 +119,7 @@ void calInte64(double* g_can, char* sHOG, int* inteAng,
 			if (sHOG[(y - 2)*(COL-4)+x - 2] == -1)
 				continue;
 			else
-				d = sHoG2Idx(sHOG[(y - 2)*(COL-4)+x - 2]);
+				d = sHOG[(y - 2)*(COL-4)+x - 2];
 			xInte = x + maxWinP;
 			yInte = y + maxWinP;
 			int location = yInte * COLINTE + xInte + d * ROWINTE*COLINTE;
@@ -176,7 +177,7 @@ void calInte64(double* g_can, char* sHOG, int* inteAng,
 	}
 }
 
-double sHoGpatInte(char* sHoG1, int* inteAng)
+double sHoGpatInteCPU(int* sHoG1, int* inteAng)
 {
 	int x1, y1, wN, ang1, dnn = 0, count = 0;
 	int maxWinP = MAXWINDOWSIZE + 1;
@@ -198,7 +199,7 @@ double sHoGpatInte(char* sHoG1, int* inteAng)
 		for (x1 = MARGINE + 2; x1 < COL - MARGINE - 2; ++x1)
 		{
 ;
-			if ((ang1 = sHoG2Idx(sHoG1[(y1-2)*(COL - 4) + x1-2])) != -1)
+			if ((ang1 = sHoG1[(y1-2)*(COL - 4) + x1-2]) != -1)
 			{
 				for (wN = 0; wN < nDnnL; ++wN)
 				{
@@ -228,8 +229,20 @@ double sHoGpatInte(char* sHoG1, int* inteAng)
 	return ddnn;
 }
 
-void gptcorsHoGInte(char* sHoG1, double* g_can1,
-	char* sHoG2, double* g_can2, double* gwt, double* inteCanDir,
+double sHoGpatInte(int* sHoG1, int* inteAng)
+{
+	if (isGPU == 0)
+	{
+		return sHoGpatInteCPU(sHoG1, inteAng);
+	}
+	else
+	{
+		return sHoGpatInteGPU(sHoG1);
+	}
+}
+
+void gptcorsHoGInte(int* sHoG1, double* g_can1,
+	int* sHoG2, double* g_can2, double* gwt, double* inteCanDir,
 	double* inteDx2Dir, double* inteDy2Dir, double dnn, double gpt[3][3])
 {
 	/* determination of optimal GAT components */
@@ -289,7 +302,7 @@ void gptcorsHoGInte(char* sHoG1, double* g_can1,
 		{
 			dx1 = x1 - CX;
 
-			ang1 = sHoG2Idx(sHoG1[(y1 - 2)*(COL - 4) + x1 - 2]);
+			ang1 = sHoG1[(y1 - 2)*(COL - 4) + x1 - 2];
 			if (ang1 == -1)
 				continue;
 			// printf("ang1 = %d\n", ang1);

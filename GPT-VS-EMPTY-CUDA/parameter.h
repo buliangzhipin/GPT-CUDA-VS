@@ -1,6 +1,6 @@
 #pragma once
 
-#define isGPU 0
+#define isGPU 1
 
 
 #define DATATYPE 2
@@ -32,6 +32,12 @@
 #define TRUE 1
 #define FALSE 0
 /* --------------Fixed parameters-------------- */
+
+#define MAXWINDOWSIZE 16
+#define ROWINTE (ROW + 2 * MAXWINDOWSIZE + 1)
+#define COLINTE (COL + 2 * MAXWINDOWSIZE + 1)
+#define DNNL {0, 1, 2, 3, 4, 6, 8, 11, 16, 23, 32, 45, 64, 91, 128, 181, 256, 362, 512};
+#define NDNNL 19
 
 /* initial conditions */
 #define NONELEMENT /* use non-elemental matrix as initial condition */

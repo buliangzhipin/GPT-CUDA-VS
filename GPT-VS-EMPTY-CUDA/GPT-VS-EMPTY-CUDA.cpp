@@ -12,6 +12,7 @@ using namespace std;
 #include "parameter.h"
 #include "utility.h"
 #include "init_cuda.h"
+#include "stdInte.cuh"
 
 #if isGPU == 0
 #define variableChar(a) #a
@@ -58,7 +59,7 @@ int main()
 	load_image_file(fileName, image1, COL, ROW);
 
 	int *g_ang2 = new int[ROW*COL];	  // direction of gradients
-	char *sHoG2 = new char[(ROW - 4)*(COL - 4)];
+	int *sHoG2 = new int[(ROW - 4)*(COL - 4)];
 	double *g_nor2 = new double[ROW*COL]; // norm of gradients
 	double *g_can2 = new double[ROW*COL]; // canonicalized images
 	procImg(g_can2, g_ang2, g_nor2, sHoG2, image1,1);
@@ -73,6 +74,8 @@ int main()
 	double* inteDy2Dir = new double[ROWINTE*COLINTE*64];
 	calInte64(g_can2, sHoG2, inteAng, inteCanDir, inteDx2Dir, inteDy2Dir);
 #pragma endregion Calculate_Inte
+
+	sHoGpatInitial(inteAng);
 
 	cout << "process1 finished" << endl;
 
@@ -96,7 +99,7 @@ int main()
 	//save_image_file(fileName, image2, COL, ROW);
 
 	int *g_ang1 = new int[ROW*COL];	  // direction of gradients
-	char *sHoG1 = new char[(ROW - 4)*(COL - 4)];
+	int *sHoG1 = new int[(ROW - 4)*(COL - 4)];
 	double *g_nor1 = new double[ROW*COL]; // norm of gradients
 	double *g_can1 = new double[ROW*COL]; // canonicalized images
 	clock_t start1, end1;

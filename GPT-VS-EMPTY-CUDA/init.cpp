@@ -3,7 +3,7 @@
 #include "init.h"
 #include "init_cuda.h"
 
-void procImg(double* g_can, int* g_ang, double* g_nor, char* sHoG, unsigned char* image1,int initial)
+void procImg(double* g_can, int* g_ang, double* g_nor, int* sHoG, unsigned char* image1,int initial)
 {
 #if isGPU == 0
 	defcan2(g_can, image1);         /* canonicalization */
@@ -125,24 +125,7 @@ void roberts8(int* g_ang, double* g_nor, unsigned char* image1)
 	}
 }
 
-//int sHoG2Idx(char sHoG)
-//{
-//	int tempValue = sHoG;
-//	int quot, remd;
-//	if (tempValue == -1)
-//		return -1;
-//	if (tempValue < 10)
-//		return tempValue - 1;
-//
-//	quot = tempValue / 10;
-//	remd = tempValue % 10;
-//	if (quot > remd)
-//		return (quot * 7 + remd);
-//	else
-//		return ( quot * 7 + remd - 1) ;
-//}
-
-void smplHoG64(char* sHoG, int* g_ang, double* g_nor)
+void smplHoG64(int* sHoG, int* g_ang, double* g_nor)
 {
 	int x, y, dx, dy, dir;
 	double HoG[8];
@@ -189,13 +172,12 @@ void smplHoG64(char* sHoG, int* g_ang, double* g_nor)
 			// calculate the direction
 			if (HoG[0] > SHoGTHRE)
 			{
-				sHoG[y*(COL-4)+x] = (char)HoGIdx[0];
+				sHoG[y*(COL-4)+x] = HoGIdx[0]*8;
 				if (HoG[1] > SHoGSECONDTHRE * HoG[0])
 				{
-					sHoG[y*(COL-4)+x] = sHoG[y*(COL-4)+x] * 10 + (char)HoGIdx[1];
+					sHoG[y*(COL-4)+x] += HoGIdx[1];
 				}
 			}
-			// printf("<%d, %d> HoG = %d \n", y, x, sHoG[y][x]);
 		}
 	}
 }

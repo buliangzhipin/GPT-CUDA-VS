@@ -1,10 +1,7 @@
-#include <stdio.h>
-#include <iostream>
-#include <time.h>
-
-
 #include "cudaInclude.cuh"
 #include "init_cuda.h"
+#include "stdInte.cuh"
+
 
 #pragma region DeviceMemoryPointer
 void *d_cuda_defcan_vars_ptr;
@@ -13,10 +10,9 @@ void *d_g_can1_ptr, *d_g_ang1_ptr, *d_g_nor1_ptr,*d_gpt_ptr;
 #pragma endregion DeviceMemoryPointer
 
 int iDivUp(int hostPtr, int b) { return ((hostPtr % b) != 0) ? (hostPtr / b + 1) : (hostPtr / b); };
-
-
 dim3 numBlock;
 dim3 numThread;
+
 
 void setGPUSize(int blockX, int blockY, int threadX, int threadY)
 {
@@ -46,6 +42,8 @@ __device__ void customAdd(T* sdata, T* g_odata) {
 	if (tid == 0) { atomicAdd(g_odata, sdata[tid]); }
 
 }
+
+#pragma region ProcImage
 
 __global__ void cuda_defcan1() {
 	int tx = threadIdx.x;
@@ -152,12 +150,6 @@ __global__ void cuda_roberts8() {
 	d_g_ang1[y][x] = 5;
 }
 
-
-void cuda_CopyImage()
-{
-
-}
-
 void procImageInitial()
 {
 	gpuErrchk(cudaGetSymbolAddress(&d_image1_ptr, d_image1));
@@ -166,13 +158,6 @@ void procImageInitial()
 	gpuErrchk(cudaGetSymbolAddress(&d_g_ang1_ptr, d_g_ang1));
 	gpuErrchk(cudaGetSymbolAddress(&d_cuda_defcan_vars_ptr, d_cuda_defcan_vars));
 	gpuStop()	
-}
-
-void bilinearInitial()
-{
-	gpuErrchk(cudaGetSymbolAddress(&d_gpt_ptr, d_gpt));
-	gpuErrchk(cudaGetSymbolAddress(&d_image2_ptr, d_image2));
-	gpuStop();
 }
 
 void cuda_procImg(double* g_can, int* g_ang, double* g_nor, unsigned char* image1,int copy) {
@@ -191,6 +176,17 @@ void cuda_procImg(double* g_can, int* g_ang, double* g_nor, unsigned char* image
 	cudaMemcpy(g_nor, d_g_nor1_ptr, ROW*COL * sizeof(double), cudaMemcpyDeviceToHost);
 	gpuStop()
 
+}
+#pragma endregion ProcImage
+
+
+#pragma region Bilinear
+
+void bilinearInitial()
+{
+	gpuErrchk(cudaGetSymbolAddress(&d_gpt_ptr, d_gpt));
+	gpuErrchk(cudaGetSymbolAddress(&d_image2_ptr, d_image2));
+	gpuStop();
 }
 
 __global__ void cuda_calc_bilinear_normal_inverse_projection(int x_size1, int y_size1, int x_size2, int y_size2) {
@@ -261,3 +257,113 @@ void cuda_bilinear_normal_inverse_projection(double gpt[3][3], int x_size1, int 
 	setGPUSize(COL, ROW, TPB, TPB);
 	cuda_calc_bilinear_normal_inverse_projection << <numBlock, numThread >> > (x_size1, y_size1, x_size2, y_size2);
 }
+
+#pragma endregion Bilinear
+
+
+#pragma region SHoGPat
+
+void *d_inteAng_ptr;
+void *d_sHoG_ptr;
+
+__device__ int d_dnnL[] = DNNL;
+__device__ double d_dnn[1];
+void *d_dnn_ptr;
+__device__ int d_count[1];
+void *d_count_ptr;
+
+void sHoGpatInitial(int *inteAng)
+{
+	gpuErrchk(cudaGetSymbolAddress(&d_inteAng_ptr, d_inteAng));
+	gpuErrchk(cudaGetSymbolAddress(&d_sHoG_ptr, d_sHoG));
+	gpuErrchk(cudaGetSymbolAddress(&d_dnn_ptr, d_dnn));
+	gpuErrchk(cudaGetSymbolAddress(&d_count_ptr, d_count));
+	cudaMemcpy(d_inteAng_ptr, inteAng, ROWINTE*COLINTE * 64 * sizeof(int), cudaMemcpyHostToDevice);
+	gpuStop()
+}
+
+__global__ void cuda_sHoGpatInte(int nDnnL)
+{
+	int tx = threadIdx.x;
+	int ty = threadIdx.y;
+	int tid = ty * blockDim.x + tx;
+	int x = blockIdx.x*blockDim.x + threadIdx.x;
+	int y = blockIdx.y*blockDim.y + threadIdx.y;
+
+	if (x >= COL - 4 || y >= ROW - 4)
+	{
+		return;
+	}
+	int maxWinP = MAXWINDOWSIZE + 1;
+	int x1 = x + 2;
+	int y1 = y + 2;
+	int ang1 = 0;
+	int count = 0;
+	double dnn = 0;
+	if ((ang1 = d_sHoG[y][x]) != -1)
+	{
+		for (int wN = 0; wN < nDnnL; wN++)
+		{
+			int pPos = maxWinP + d_dnnL[wN];
+			int mPos = MAXWINDOWSIZE - d_dnnL[wN];
+			double secInte = d_inteAng[y1 + pPos][x1 + pPos][ang1]
+				- d_inteAng[(y1 + pPos)][x1 + mPos][ang1]
+				- d_inteAng[(y1 + mPos)][x1 + pPos][ang1]
+				+ d_inteAng[(y1 + mPos)][x1 + mPos][ang1];
+			if (secInte > 0)
+			{
+				count = 1;
+				dnn = d_dnnL[wN];
+				break;
+			}
+		}
+	}
+
+	__shared__ double sdataD[TPB_X_TPB];
+	__shared__ int sdataI[TPB_X_TPB];
+	sdataD[tid] = dnn;
+	sdataI[tid] = count;
+
+	__syncthreads();
+
+	customAdd(sdataD, d_dnn);
+	customAdd(sdataI, d_count);
+
+}
+
+
+
+double sHoGpatInteGPU(int* sHoG1)
+{
+	cudaMemset(d_count_ptr, 0, sizeof(int));
+	cudaMemset(d_dnn_ptr, 0, sizeof(double));
+	cudaMemcpy(d_sHoG_ptr, sHoG1, (ROW - 4)*(COL - 4) * sizeof(int), cudaMemcpyHostToDevice);
+
+	int dnnL[] = DNNL;
+	int nDnnL;
+	int count = 0;
+	double dnn = 0;
+
+	for (int wN = 0; wN < NDNNL; ++wN)
+	{
+		if (dnnL[wN] >= MAXWINDOWSIZE)
+		{
+			nDnnL = wN + 1;
+			break;
+		}
+	}
+
+	setGPUSize(COL, ROW, TPB, TPB);
+	cuda_sHoGpatInte << <numBlock, numThread >> > (nDnnL);
+	cudaMemcpy(&count, d_count_ptr, sizeof(int), cudaMemcpyDeviceToHost);
+	cudaMemcpy(&dnn, d_dnn_ptr, sizeof(double), cudaMemcpyDeviceToHost);
+	gpuStop()
+	double ddnn;
+	if (count == 0)
+		ddnn = MAXWINDOWSIZE;
+	else
+		ddnn = (double)dnn / count;
+	return ddnn;
+}
+
+#pragma endregion SHoGPat

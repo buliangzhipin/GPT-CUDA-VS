@@ -13,6 +13,9 @@ using namespace std;
 #include "utility.h"
 #include "init_cuda.h"
 
+#include <cuda_profiler_api.h>
+
+
 #if isGPU == 0
 #define variableChar(a) #a
 #elif isGPU == 1
@@ -36,6 +39,7 @@ void SaveData(T* data,const char* fileName,int x_size,int y_size)
 
 int main()
 {
+	//cudaProfilerStart();
 	double gpt1[3][3];
 	initGpt2(gpt1, ZOOM, ZOOM * BETA, B1, B2, ROT);
 
@@ -160,9 +164,9 @@ int main()
 
 			/* update correlation */
 			new_cor1 = 0.0;
-			//for (int y = margine; y < ROW - margine; y++)
-			//	for (int x = margine; x < COL - margine; x++)
-			//		new_cor1 += g_can1[y*COL+x] * g_can2[y*COL+x];
+			for (int y = margine; y < ROW - margine; y++)
+				for (int x = margine; x < COL - margine; x++)
+					new_cor1 += g_can1[y*COL+x] * g_can2[y*COL+x];
 		
 			dnn = WNNDEsHoGD * sHoGpatInte(sHoG1, inteAng);
 			printf("iter = %d, new col. = %f dnn = %f  var = %f (d2 = %f) \n", iter, new_cor1, dnn, 1 / var, d2);
@@ -170,6 +174,8 @@ int main()
 			double endtime = (double)(end - start) / CLOCKS_PER_SEC;
 			cout << "Total time:" << endtime * 1000 << "ms" << endl;	//ms为单位
 		}
+
+		//cudaProfilerStop();
 
 
 		for (int i = 0; i < 3; i++)
@@ -182,6 +188,7 @@ int main()
 		}
 
 		delete image1;
+		system("pause");
 	return 0;
 }
 

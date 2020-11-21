@@ -19,6 +19,16 @@ int iDivUp(int hostPtr, int b) { return ((hostPtr % b) != 0) ? (hostPtr / b + 1)
 dim3 numBlock;
 dim3 numThread;
 
+unsigned int nextPow2(unsigned int x) {
+	--x;
+	x |= x >> 1;
+	x |= x >> 2;
+	x |= x >> 4;
+	x |= x >> 8;
+	x |= x >> 16;
+	return ++x;
+}
+
 void setGPUSize(int blockX, int blockY, int threadX, int threadY)
 {
 	numBlock.x = iDivUp(blockX, threadX);
@@ -55,23 +65,24 @@ __device__ void customAdd(T* sdata, T* g_odata) {
 template<typename T>
 __device__ void customAdd2(T* sdata, T* g_odata)
 {
-	int tx = threadIdx.x;
-	int ty = threadIdx.y;
-	int tid = ty * blockDim.x + tx;
+	int tid = threadIdx.x;
+	
 
-	for (unsigned int s = blockDim.x * blockDim.y / 2; s > 0; s >>= 1) {
+	for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
 		if (tid < s) {
 			sdata[tid] += sdata[tid + s];
 		}
 		__syncthreads();
 	}
+	if (tid == 0)
+		g_odata[0] = sdata[0];
 }
 
 __global__ void cuda_add2()
 {
-	customAdd2(&d_cuda_defcan_array[0][0],d_cuda_defcan_vars);
-	customAdd2(&d_cuda_defcan_array[1][0], d_cuda_defcan_vars +1);
-	customAdd2(&d_cuda_defcan_array[2][0], d_cuda_defcan_vars +2);
+	customAdd2(d_cuda_defcan_array[0],d_cuda_defcan_vars);
+	customAdd2(d_cuda_defcan_array[1],d_cuda_defcan_vars +1);
+	customAdd2(d_cuda_defcan_array[2],d_cuda_defcan_vars +2);
 }
 
 __global__ void cuda_defcan1() {
@@ -98,9 +109,9 @@ __global__ void cuda_defcan1() {
 
 	__syncthreads();
 
-	customAdd(sdata[0], &d_cuda_defcan_array[0][0]);
-	customAdd(sdata[1], &d_cuda_defcan_array[1][0]);
-	customAdd(sdata[2], &d_cuda_defcan_array[2][0]);
+	customAdd(sdata[0], d_cuda_defcan_array[0]);
+	customAdd(sdata[1], d_cuda_defcan_array[1]);
+	customAdd(sdata[2], d_cuda_defcan_array[2]);
 }
 __global__ void cuda_defcan2() {
 	int x = blockIdx.x*blockDim.x + threadIdx.x;
@@ -192,21 +203,58 @@ void procImageInitial()
 	gpuErrchk(cudaGetSymbolAddress(&d_g_nor1_ptr, d_g_nor1));
 	gpuErrchk(cudaGetSymbolAddress(&d_g_ang1_ptr, d_g_ang1));
 	gpuErrchk(cudaGetSymbolAddress(&d_cuda_defcan_vars_ptr, d_cuda_defcan_vars));
+	gpuErrchk(cudaGetSymbolAddress(&d_cuda_defcan_array_ptr, d_cuda_defcan_array));
+
 	gpuStop()	
 }
 
 
 void cuda_procImg(double* g_can, int* g_ang, double* g_nor, unsigned char* image1,int copy) {
-	cudaMemset(d_cuda_defcan_vars_ptr, 0, 3 * sizeof(double));
+	//cudaMemset(d_cuda_defcan_vars_ptr, 0, 3 * sizeof(double));
 
 	if(copy == 1)
 	cudaMemcpy(d_image1_ptr, image1, ROW*COL * sizeof(unsigned char), cudaMemcpyHostToDevice);
 
 	setGPUSize(COL,ROW,TPB,TPB);
 	cuda_defcan1 << <numBlock, numThread >> > ();
-	cuda_add2 << <1, numBlock >> > ();
+	//double* cuda_defcan_array = new double[3 * 1024];
+	//cudaMemcpy(cuda_defcan_array, d_cuda_defcan_array_ptr, 3 * 1024 * sizeof(double), cudaMemcpyDeviceToHost);
+	//for (int i = 0; i < numBlock.x * numBlock.y + 10; i++)
+	//{
+	//	cout << cuda_defcan_array[i] << " " << cuda_defcan_array[i + 1024] << " " << cuda_defcan_array[i + 2048] << endl;
+	//}
+	//double num1 = 0;
+	//double num2 = 0;
+	//double num3 = 0;
+	//for (int i = 0; i < numBlock.x * numBlock.y + 10; i++)
+	//{
+	//	num1 += cuda_defcan_array[i];
+	//	num2 += cuda_defcan_array[i+1024];
+	//	num3 += cuda_defcan_array[i + 2048];
+	//}
+
+	//cout << "sum cpu" << endl;
+	//cout << num1 << " " << num2 << " " << num3 << endl;
+
+	unsigned int size = nextPow2(numBlock.x * numBlock.y);
+
+	cuda_add2 << <1, size >> > ();
 	cuda_defcan2 << <numBlock, numThread >> > ();
 	cuda_roberts8 << <numBlock, numThread >> > ();
+
+	//double* cuda_defcan = new double[3];
+	//cudaMemcpy(cuda_defcan, d_cuda_defcan_vars_ptr, 3* sizeof(double), cudaMemcpyDeviceToHost);
+
+	//double* cuda_defcan_array2 = new double[3 * 1024];
+	//cudaMemcpy(cuda_defcan_array2, d_cuda_defcan_array_ptr, 3 * 1024 * sizeof(double), cudaMemcpyDeviceToHost);
+	//for (int i = 0; i < numBlock.x * numBlock.y + 10; i++)
+	//{
+	//	cout << cuda_defcan_array2[i] << " " << cuda_defcan_array2[i + 1024] << " " << cuda_defcan_array2[i + 2048] << endl;
+	//}
+
+	//cout << "sum" << endl;
+	//cout << cuda_defcan[0] << " " << cuda_defcan[1] << " " << cuda_defcan[2] << endl;
+
 	cudaMemcpy(g_can, d_g_can1_ptr, ROW*COL * sizeof(double), cudaMemcpyDeviceToHost);
 	cudaMemcpy(g_ang, d_g_ang1_ptr, ROW*COL * sizeof(int), cudaMemcpyDeviceToHost);
 	cudaMemcpy(g_nor, d_g_nor1_ptr, ROW*COL * sizeof(double), cudaMemcpyDeviceToHost);

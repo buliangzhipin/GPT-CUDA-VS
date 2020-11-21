@@ -8,6 +8,7 @@
 
 #pragma region DeviceMemoryPointer
 void *d_cuda_defcan_vars_ptr;
+void *d_cuda_defcan_array_ptr;
 void *d_image1_ptr;
 void *d_g_can1_ptr, *d_g_ang1_ptr, *d_g_nor1_ptr;
 #pragma endregion DeviceMemoryPointer
@@ -31,6 +32,7 @@ __device__ void customAdd(T* sdata, T* g_odata) {
 	int tx = threadIdx.x;
 	int ty = threadIdx.y;
 	int tid = ty * blockDim.x + tx;
+	int id = blockIdx.y * gridDim.x + blockIdx.x;
 	// do reduction in shared mem
 	if (tid < 512) { sdata[tid] += sdata[tid + 512]; } __syncthreads();
 	if (tid < 256) { sdata[tid] += sdata[tid + 256]; } __syncthreads();
@@ -43,8 +45,33 @@ __device__ void customAdd(T* sdata, T* g_odata) {
 	if (tid < 2) { sdata[tid] += sdata[tid + 2]; }__syncthreads();
 	if (tid < 1) { sdata[tid] += sdata[tid + 1]; }__syncthreads();
 	// write result for this block to global mem
-	if (tid == 0) { atomicAdd(g_odata, sdata[tid]); }
+	if (tid == 0) 
+	{ 
+		g_odata[id] = sdata[0];
+	}
 
+}
+
+template<typename T>
+__device__ void customAdd2(T* sdata, T* g_odata)
+{
+	int tx = threadIdx.x;
+	int ty = threadIdx.y;
+	int tid = ty * blockDim.x + tx;
+
+	for (unsigned int s = blockDim.x * blockDim.y / 2; s > 0; s >>= 1) {
+		if (tid < s) {
+			sdata[tid] += sdata[tid + s];
+		}
+		__syncthreads();
+	}
+}
+
+__global__ void cuda_add2()
+{
+	customAdd2(&d_cuda_defcan_array[0][0],d_cuda_defcan_vars);
+	customAdd2(&d_cuda_defcan_array[1][0], d_cuda_defcan_vars +1);
+	customAdd2(&d_cuda_defcan_array[2][0], d_cuda_defcan_vars +2);
 }
 
 __global__ void cuda_defcan1() {
@@ -71,9 +98,9 @@ __global__ void cuda_defcan1() {
 
 	__syncthreads();
 
-	customAdd(sdata[0], d_cuda_defcan_vars);
-	customAdd(sdata[1], d_cuda_defcan_vars + 1);
-	customAdd(sdata[2], d_cuda_defcan_vars + 2);
+	customAdd(sdata[0], &d_cuda_defcan_array[0][0]);
+	customAdd(sdata[1], &d_cuda_defcan_array[1][0]);
+	customAdd(sdata[2], &d_cuda_defcan_array[2][0]);
 }
 __global__ void cuda_defcan2() {
 	int x = blockIdx.x*blockDim.x + threadIdx.x;
@@ -177,6 +204,7 @@ void cuda_procImg(double* g_can, int* g_ang, double* g_nor, unsigned char* image
 
 	setGPUSize(COL,ROW,TPB,TPB);
 	cuda_defcan1 << <numBlock, numThread >> > ();
+	cuda_add2 << <1, numBlock >> > ();
 	cuda_defcan2 << <numBlock, numThread >> > ();
 	cuda_roberts8 << <numBlock, numThread >> > ();
 	cudaMemcpy(g_can, d_g_can1_ptr, ROW*COL * sizeof(double), cudaMemcpyDeviceToHost);

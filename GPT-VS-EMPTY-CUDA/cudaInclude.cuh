@@ -26,7 +26,6 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort =
 #pragma endregion MACRO
 
 #pragma region DeviceMemory
-__device__ double d_cuda_defcan_vars[3];
 __device__ unsigned char d_image1[ROW][COL];
 __device__ unsigned char d_image2[ROW2][COL2];
 

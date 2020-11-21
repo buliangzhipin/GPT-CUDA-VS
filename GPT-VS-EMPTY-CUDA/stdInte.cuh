@@ -1,4 +1,4 @@
 #pragma once
 
-double sHoGpatInteGPU(int* sHoG1);
+float sHoGpatInteGPU(int *sHoG1);
 void sHoGpatInitial(int *inteAng);

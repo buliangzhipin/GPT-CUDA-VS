@@ -4,10 +4,10 @@
 #include "utility.h"
 #include <stdio.h>
 
-void copyNormalGpt(double inGpt[3][3], double outGpt[3][3])
+void copyNormalGpt(float inGpt[3][3], float outGpt[3][3])
 {
 	int i, j;
-	double nf = 1.0 / inGpt[2][2];
+	float nf = 1.0 / inGpt[2][2];
 	for (i = 0; i < 3; ++i)
 	{
 		for (j = 0; j < 3; ++j)
@@ -17,10 +17,10 @@ void copyNormalGpt(double inGpt[3][3], double outGpt[3][3])
 	}
 }
 
-void multplyMV(double inMat[NI][NI + 1], double v[NI])
+void multplyMV(float inMat[NI][NI + 1], float v[NI])
 {
 	int i, j;
-	double sum;
+	float sum;
 	for (i = 0; i < NI; ++i)
 	{
 		sum = 0.0;
@@ -32,10 +32,10 @@ void multplyMV(double inMat[NI][NI + 1], double v[NI])
 	}
 }
 
-void solveLEq(double inMat[NI][NI + 1])
+void solveLEq(float inMat[NI][NI + 1])
 {
 	int i, j, j2, maxI;
-	double tmp, pivVal;
+	float tmp, pivVal;
 
 	//printNxN1(inMat);
 	for (j = 0; j < NI; ++j)
@@ -89,12 +89,12 @@ void solveLEq(double inMat[NI][NI + 1])
 //	return (quot*8 + remd);
 //}
 
-void calInte64(double* g_can, int* sHOG, int* inteAng,
-	double* inteCanDir, double* inteDx2Dir, double* inteDy2Dir)
+void calInte64(float* g_can, int* sHOG, int* inteAng,
+	float* inteCanDir, float* inteDx2Dir, float* inteDy2Dir)
 {
 	int x, y, d, xInte, yInte, angInte[64];
 	int maxWinP = MAXWINDOWSIZE + 1;
-	double canDirInte[64], dx2DirInte[64], dy2DirInte[64];
+	float canDirInte[64], dx2DirInte[64], dy2DirInte[64];
 
 	/* Set init data */
 	for (y = 0; y < ROWINTE; ++y)
@@ -177,12 +177,12 @@ void calInte64(double* g_can, int* sHOG, int* inteAng,
 	}
 }
 
-double sHoGpatInteCPU(int* sHoG1, int* inteAng)
+float sHoGpatInteCPU(int* sHoG1, int* inteAng)
 {
 	int x1, y1, wN, ang1, dnn = 0, count = 0;
 	int maxWinP = MAXWINDOWSIZE + 1;
 	int pPos, mPos, sectInte, nDnnL = NDNNL;
-	double ddnn;
+	float ddnn;
 	int dnnL[] = DNNL;
 
 	for (wN = 0; wN < NDNNL; ++wN)
@@ -225,11 +225,11 @@ double sHoGpatInteCPU(int* sHoG1, int* inteAng)
 	if (count == 0)
 		ddnn = MAXWINDOWSIZE;
 	else
-		ddnn = (double)dnn / count;
+		ddnn = (float)dnn / count;
 	return ddnn;
 }
 
-double sHoGpatInte(int* sHoG1, int* inteAng)
+float sHoGpatInte(int* sHoG1, int* inteAng)
 {
 	if (isGPU == 0)
 	{
@@ -241,28 +241,28 @@ double sHoGpatInte(int* sHoG1, int* inteAng)
 	}
 }
 
-void gptcorsHoGInte(int* sHoG1, double* g_can1,
-	int* sHoG2, double* g_can2, double* gwt, double* inteCanDir,
-	double* inteDx2Dir, double* inteDy2Dir, double dnn, double gpt[3][3])
+void gptcorsHoGInte(int* sHoG1, float* g_can1,
+	int* sHoG2, float* g_can2, float* gwt, float* inteCanDir,
+	float* inteDx2Dir, float* inteDy2Dir, float dnn, float gpt[3][3])
 {
 	/* determination of optimal GAT components */
 	/* that yield the maximal correlation value */
 	int x1, y1;
 	int i, j, loop;
-	double g0, gx1, gy1, gx2, gy2;
-	double gx1x1, gx1y1, gy1y1, gx1x2, gx1y2, gy1x2, gy1y2;
-	double t0, tx2, ty2;
-	double gx1x1x1, gx1x1y1, gx1y1y1, gy1y1y1;
-	double gx1x1x2, gx1x1y2, gx1y1x2, gx1y1y2, gy1y1x2, gy1y1y2;
-	double gx1x1x1x1, gx1x1x1y1, gx1x1y1y1, gx1y1y1y1, gy1y1y1y1;
-	double tx1, ty1, tx1x1, tx1y1, ty1y1, tx1x1x1, tx1x1y1, tx1y1y1, ty1y1y1;
-	double U[NI][NI + 1], U0[NI][NI + 1];
-	double V[NI][NI + 1], v[NI];
-	double dx1, dy1;
-	double tGpt1[3][3], tGpt2[3][3];
-	double detA, r, rg0;
-	double Ainv11, Ainv12, Ainv21, Ainv22, grAinv11, grAinv12, grAinv21, grAinv22;
-	double var = WGT * WGT * dnn * dnn;
+	float g0, gx1, gy1, gx2, gy2;
+	float gx1x1, gx1y1, gy1y1, gx1x2, gx1y2, gy1x2, gy1y2;
+	float t0, tx2, ty2;
+	float gx1x1x1, gx1x1y1, gx1y1y1, gy1y1y1;
+	float gx1x1x2, gx1x1y2, gx1y1x2, gx1y1y2, gy1y1x2, gy1y1y2;
+	float gx1x1x1x1, gx1x1x1y1, gx1x1y1y1, gx1y1y1y1, gy1y1y1y1;
+	float tx1, ty1, tx1x1, tx1y1, ty1y1, tx1x1x1, tx1x1y1, tx1y1y1, ty1y1y1;
+	float U[NI][NI + 1], U0[NI][NI + 1];
+	float V[NI][NI + 1], v[NI];
+	float dx1, dy1;
+	float tGpt1[3][3], tGpt2[3][3];
+	float detA, r, rg0;
+	float Ainv11, Ainv12, Ainv21, Ainv22, grAinv11, grAinv12, grAinv21, grAinv22;
+	float var = WGT * WGT * dnn * dnn;
 
 	int ang1;
 #ifdef TWOWINDOW
@@ -526,7 +526,7 @@ void gptcorsHoGInte(int* sHoG1, double* g_can1,
 	copyNormalGpt(tGpt2, gpt);
 }
 
-void initGpt(double gpt[3][3])
+void initGpt(float gpt[3][3])
 {
 	gpt[0][0] = 1.0;
 	gpt[0][1] = 0.0;

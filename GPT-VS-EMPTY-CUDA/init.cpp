@@ -3,10 +3,10 @@
 #include "init.h"
 #include "init_cuda.h"
 
-void procImg(double* g_can, int* g_ang, double* g_nor, int* sHoG, unsigned char* image1,int initial)
+void procImg(float *g_can, int *g_ang, float *g_nor, int *sHoG, unsigned char *image1, int initial)
 {
 #if isGPU == 0
-	defcan2(g_can, image1);         /* canonicalization */
+	defcan2(g_can, image1);			/* canonicalization */
 	roberts8(g_ang, g_nor, image1); /* 8-quantization of gradient dir */
 	// calHoG(g_ang, g_HoG);				/* calculate sHOG pattern */
 	smplHoG64(sHoG, g_ang, g_nor); /* Numberring the sHOG pattern to sHoGNUMBER */
@@ -17,11 +17,11 @@ void procImg(double* g_can, int* g_ang, double* g_nor, int* sHoG, unsigned char*
 #endif
 }
 
-void defcan2(double* g_can, unsigned char* image1)
+void defcan2(float *g_can, unsigned char *image1)
 {
 	/* definite canonicalization */
 	int x, y;
-	double mean, norm, ratio; // mean: mean value, norm: normal factor, ratio:
+	float mean, norm, ratio; // mean: mean value, norm: normal factor, ratio:
 	int margine = CANMARGIN / 2;
 	int npo; // number of point
 
@@ -32,16 +32,16 @@ void defcan2(double* g_can, unsigned char* image1)
 	{
 		for (x = margine; x < COL - margine; x++)
 		{
-			if (image1[y*COL+x] != WHITE)
+			if (image1[y * COL + x] != WHITE)
 			{
-				mean += (double)image1[y*COL+x];
-				norm += (double)image1[y*COL+x] * (double)image1[y*COL+x];
+				mean += (float)image1[y * COL + x];
+				norm += (float)image1[y * COL + x] * (float)image1[y * COL + x];
 				npo++;
 			}
 		}
 	}
-	mean /= (double)npo;
-	norm -= (double)npo * mean * mean;
+	mean /= (float)npo;
+	norm -= (float)npo * mean * mean;
 	if (norm == 0.0)
 		norm = 1.0;
 	ratio = 1.0 / sqrt(norm);
@@ -49,24 +49,24 @@ void defcan2(double* g_can, unsigned char* image1)
 	{
 		for (x = margine; x < COL - margine; x++)
 		{
-			if (image1[y*COL+x] != WHITE)
+			if (image1[y * COL + x] != WHITE)
 			{
-				g_can[y*COL+x] = ratio * ((double)image1[y*COL+x] - mean);
+				g_can[y * COL + x] = ratio * ((float)image1[y * COL + x] - mean);
 			}
 			else
 			{
-				g_can[y*COL+x] = 0.0;
+				g_can[y * COL + x] = 0.0;
 			}
 		}
 	}
 }
 
-void roberts8(int* g_ang, double* g_nor, unsigned char* image1)
+void roberts8(int *g_ang, float *g_nor, unsigned char *image1)
 {
 	/* extraction of gradient information by Roberts operator */
 	/* with 8-directional codes and strength */
-	double delta_RD, delta_LD;
-	double angle;
+	float delta_RD, delta_LD;
+	float angle;
 	int x, y; /* Loop variable */
 
 	/* angle & norm of gradient vector calculated
@@ -75,8 +75,8 @@ void roberts8(int* g_ang, double* g_nor, unsigned char* image1)
 	{
 		for (x = 0; x < COL; x++)
 		{
-			g_ang[y*COL+x] = -1;
-			g_nor[y*COL+x] = 0.0;
+			g_ang[y * COL + x] = -1;
+			g_nor[y * COL + x] = 0.0;
 		}
 	}
 
@@ -85,57 +85,57 @@ void roberts8(int* g_ang, double* g_nor, unsigned char* image1)
 		for (x = 0; x < COL - 1; x++)
 		{
 			//printf("(%d, %d) ang = %d,  norm = %f\n", x, y, g_ang[y*COL + x], g_nor[y*COL + x]);
-			delta_RD = image1[y*COL+x + 1] - image1[(y + 1)*COL+x];
-			delta_LD = image1[y*COL+x] - image1[(y + 1)*COL+x + 1];
-			g_nor[y*COL+x] = sqrt(delta_RD * delta_RD + delta_LD * delta_LD);
+			delta_RD = image1[y * COL + x + 1] - image1[(y + 1) * COL + x];
+			delta_LD = image1[y * COL + x] - image1[(y + 1) * COL + x + 1];
+			g_nor[y * COL + x] = sqrt(delta_RD * delta_RD + delta_LD * delta_LD);
 
-			if (g_nor[y*COL+x] == 0.0 || delta_RD * delta_RD + delta_LD * delta_LD < NoDIRECTION * NoDIRECTION)
+			if (g_nor[y * COL + x] == 0.0 || delta_RD * delta_RD + delta_LD * delta_LD < NoDIRECTION * NoDIRECTION)
 				continue;
 
 			if (abs(delta_RD) == 0.0)
 			{
 				if (delta_LD > 0)
-					g_ang[y*COL+x] = 3;
+					g_ang[y * COL + x] = 3;
 				if (delta_LD < 0)
-					g_ang[y*COL+x] = 7;
+					g_ang[y * COL + x] = 7;
 			}
 			else
 			{
 				angle = atan2(delta_LD, delta_RD);
 				if (angle > 7.0 / 8.0 * PI)
-					g_ang[y*COL+x] = 5;
+					g_ang[y * COL + x] = 5;
 				else if (angle > 5.0 / 8.0 * PI)
-					g_ang[y*COL+x] = 4;
+					g_ang[y * COL + x] = 4;
 				else if (angle > 3.0 / 8.0 * PI)
-					g_ang[y*COL+x] = 3;
+					g_ang[y * COL + x] = 3;
 				else if (angle > 1.0 / 8.0 * PI)
-					g_ang[y*COL+x] = 2;
+					g_ang[y * COL + x] = 2;
 				else if (angle > -1.0 / 8.0 * PI)
-					g_ang[y*COL+x] = 1;
+					g_ang[y * COL + x] = 1;
 				else if (angle > -3.0 / 8.0 * PI)
-					g_ang[y*COL+x] = 0;
+					g_ang[y * COL + x] = 0;
 				else if (angle > -5.0 / 8.0 * PI)
-					g_ang[y*COL+x] = 7;
+					g_ang[y * COL + x] = 7;
 				else if (angle > -7.0 / 8.0 * PI)
-					g_ang[y*COL+x] = 6;
+					g_ang[y * COL + x] = 6;
 				else
-					g_ang[y*COL+x] = 5;
+					g_ang[y * COL + x] = 5;
 			}
 		}
 	}
 }
 
-void smplHoG64(int* sHoG, int* g_ang, double* g_nor)
+void smplHoG64(int *sHoG, int *g_ang, float *g_nor)
 {
 	int x, y, dx, dy, dir;
-	double HoG[8];
+	float HoG[8];
 	int HoGIdx[8];
 
 	for (y = 0; y < ROW - 4; y++)
 	{
 		for (x = 0; x < COL - 4; x++)
 		{
-			sHoG[y*(COL-4)+x] = -1;
+			sHoG[y * (COL - 4) + x] = -1;
 			// initialize
 			for (dir = 0; dir < 8; dir++)
 			{
@@ -147,9 +147,9 @@ void smplHoG64(int* sHoG, int* g_ang, double* g_nor)
 			{
 				for (dx = x; dx < x + 5; dx++)
 				{
-					if (g_ang[dy*COL+dx] == -1)
+					if (g_ang[dy * COL + dx] == -1)
 						continue;
-					HoG[g_ang[dy*COL+dx]] += g_nor[dy*COL+dx];
+					HoG[g_ang[dy * COL + dx]] += g_nor[dy * COL + dx];
 				}
 			}
 			// sort of the 8 HoG (One step of bubble sort)
@@ -157,7 +157,7 @@ void smplHoG64(int* sHoG, int* g_ang, double* g_nor)
 			{
 				if (HoG[dir] >= HoG[dir - 1])
 				{
-					changeValue<double>(&HoG[dir], &HoG[dir - 1]);
+					changeValue<float>(&HoG[dir], &HoG[dir - 1]);
 					changeValue<int>(&HoGIdx[dir], &HoGIdx[dir - 1]);
 				}
 			}
@@ -165,28 +165,28 @@ void smplHoG64(int* sHoG, int* g_ang, double* g_nor)
 			{
 				if (HoG[dir] >= HoG[dir - 1])
 				{
-					changeValue<double>(&HoG[dir], &HoG[dir - 1]);
+					changeValue<float>(&HoG[dir], &HoG[dir - 1]);
 					changeValue<int>(&HoGIdx[dir], &HoGIdx[dir - 1]);
 				}
 			}
 			// calculate the direction
 			if (HoG[0] > SHoGTHRE)
 			{
-				sHoG[y*(COL-4)+x] = HoGIdx[0]*8;
+				sHoG[y * (COL - 4) + x] = HoGIdx[0] * 8;
 				if (HoG[1] > SHoGSECONDTHRE * HoG[0])
 				{
-					sHoG[y*(COL-4)+x] += HoGIdx[1];
+					sHoG[y * (COL - 4) + x] += HoGIdx[1];
 				}
 			}
 		}
 	}
 }
 
-void bilinear_normal_projection(double gpt[3][3], int x_size1, int y_size1, int x_size2, int y_size2,
-	unsigned char* image1, unsigned char* image2,int initial = 1)
+void bilinear_normal_projection(float gpt[3][3], int x_size1, int y_size1, int x_size2, int y_size2,
+								unsigned char *image1, unsigned char *image2, int initial = 1)
 {
 	/* projection transformation of the image by bilinear interpolation */
-	double inv_gpt[3][3];
+	float inv_gpt[3][3];
 	inverse3x3(gpt, inv_gpt);
 	if (isGPU == 0)
 		bilinear_normal_inverse_projection(inv_gpt, x_size1, y_size1, x_size2, y_size2, image1, image2);
@@ -194,14 +194,14 @@ void bilinear_normal_projection(double gpt[3][3], int x_size1, int y_size1, int 
 		cuda_bilinear_normal_inverse_projection(inv_gpt, x_size1, y_size1, x_size2, y_size2, image1, image2, initial);
 }
 
-void bilinear_normal_inverse_projection(double gpt[3][3], int x_size1, int y_size1, int x_size2, int y_size2,
-	unsigned char* image1, unsigned char* image2)
+void bilinear_normal_inverse_projection(float gpt[3][3], int x_size1, int y_size1, int x_size2, int y_size2,
+										unsigned char *image1, unsigned char *image2)
 {
 	/* inverse projection transformation of the image by bilinear interpolation */
 	int x, y;
-	double inVect[3], outVect[3];
-	double x_new, y_new, x_frac, y_frac;
-	double gray_new;
+	float inVect[3], outVect[3];
+	float x_new, y_new, x_frac, y_frac;
+	float gray_new;
 	int m, n;
 	int cx, cy, cx2, cy2;
 	int idx;
@@ -236,15 +236,15 @@ void bilinear_normal_inverse_projection(double gpt[3][3], int x_size1, int y_siz
 
 			if (m >= 0 && m + 1 < x_size2 && n >= 0 && n + 1 < y_size2)
 			{
-				gray_new = (1.0 - y_frac) * ((1.0 - x_frac) * image1[n*x_size2+m] + x_frac * image1[n*x_size2+m + 1]) + y_frac * ((1.0 - x_frac) * image1[(n + 1)*x_size2+m] + x_frac * image1[(n + 1)*x_size2+m + 1]);
-				image2[y*x_size1+x] = (unsigned char)gray_new;
+				gray_new = (1.0 - y_frac) * ((1.0 - x_frac) * image1[n * x_size2 + m] + x_frac * image1[n * x_size2 + m + 1]) + y_frac * ((1.0 - x_frac) * image1[(n + 1) * x_size2 + m] + x_frac * image1[(n + 1) * x_size2 + m + 1]);
+				image2[y * x_size1 + x] = (unsigned char)gray_new;
 			}
 			else
 			{
 #ifdef BACKGBLACK
-				image2[y*x_size1+x] = BLACK;
+				image2[y * x_size1 + x] = BLACK;
 #else
-				image2[y*x_size1+x] = WHITE;
+				image2[y * x_size1 + x] = WHITE;
 #endif
 			}
 			//printf("(%d %d): inVect = (%f; %f; %f), outVect = (%f; %f; %f) \n", y, x, inVect[0], inVect[1], inVect[2], outVect[0], outVect[1], outVect[2]);

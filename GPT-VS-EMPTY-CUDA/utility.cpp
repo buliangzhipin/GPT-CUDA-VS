@@ -4,10 +4,10 @@ using namespace std;
 #include "parameter.h"
 #include "utility.h"
 
-void multiplyVect3x3(double inMat[3][3], double inVect[3], double outVect[3])
+void multiplyVect3x3(float inMat[3][3], float inVect[3], float outVect[3])
 {
 	int i, j;
-	double sum;
+	float sum;
 	for (i = 0; i < 3; ++i)
 	{
 		sum = 0.0;
@@ -19,10 +19,10 @@ void multiplyVect3x3(double inMat[3][3], double inVect[3], double outVect[3])
 	}
 }
 
-void multiplyVect4x4(double inMat[4][4], double inVect[4], double outVect[4])
+void multiplyVect4x4(float inMat[4][4], float inVect[4], float outVect[4])
 {
 	int i, j;
-	double sum;
+	float sum;
 	for (i = 0; i < 4; ++i)
 	{
 		sum = 0.0;
@@ -34,10 +34,10 @@ void multiplyVect4x4(double inMat[4][4], double inVect[4], double outVect[4])
 	}
 }
 
-void multiplyVect8x8(double inMat[8][8], double inVect[8], double outVect[8])
+void multiplyVect8x8(float inMat[8][8], float inVect[8], float outVect[8])
 {
 	int i, j;
-	double sum;
+	float sum;
 	for (i = 0; i < 8; ++i)
 	{
 		sum = 0.0;
@@ -49,10 +49,10 @@ void multiplyVect8x8(double inMat[8][8], double inVect[8], double outVect[8])
 	}
 }
 
-void multiply3x3(double inMat1[3][3], double inMat2[3][3], double outMat[3][3])
+void multiply3x3(float inMat1[3][3], float inMat2[3][3], float outMat[3][3])
 {
 	int i, j, k;
-	double sum;
+	float sum;
 	for (i = 0; i < 3; ++i)
 	{
 		for (j = 0; j < 3; ++j)
@@ -67,10 +67,10 @@ void multiply3x3(double inMat1[3][3], double inMat2[3][3], double outMat[3][3])
 	}
 }
 
-void multiply8x8(double inMat1[8][8], double inMat2[8][8], double outMat[8][8])
+void multiply8x8(float inMat1[8][8], float inMat2[8][8], float outMat[8][8])
 {
 	int i, j, k;
-	double sum;
+	float sum;
 	for (i = 0; i < 8; ++i)
 	{
 		for (j = 0; j < 8; ++j)
@@ -85,9 +85,9 @@ void multiply8x8(double inMat1[8][8], double inMat2[8][8], double outMat[8][8])
 	}
 }
 
-void inverse3x3(double inMat[3][3], double outMat[3][3])
+void inverse3x3(float inMat[3][3], float outMat[3][3])
 {
-	double det;
+	float det;
 	det = inMat[0][0] * inMat[1][1] * inMat[2][2] + inMat[1][0] * inMat[2][1] * inMat[0][2] + inMat[2][0] * inMat[0][1] * inMat[1][2] - inMat[0][0] * inMat[2][1] * inMat[1][2] - inMat[1][0] * inMat[0][1] * inMat[2][2] - inMat[2][0] * inMat[1][1] * inMat[0][2];
 	if (fabs(det) < EPS)
 	{
@@ -107,10 +107,10 @@ void inverse3x3(double inMat[3][3], double outMat[3][3])
 	outMat[2][2] = (inMat[0][0] * inMat[1][1] - inMat[1][0] * inMat[0][1]) / det;
 }
 
-void inverse4x4(double inMat[4][4], double outMat[4][4])
+void inverse4x4(float inMat[4][4], float outMat[4][4])
 {
-	double inMemo[4][4];
-	double buf;
+	float inMemo[4][4];
+	float buf;
 	int i, j, k;
 	int n = 4;
 
@@ -146,10 +146,10 @@ void inverse4x4(double inMat[4][4], double outMat[4][4])
 	}
 }
 
-void inverse8x8(double inMat[8][8], double outMat[8][8])
+void inverse8x8(float inMat[8][8], float outMat[8][8])
 {
-	double inMemo[8][8];
-	double buf;
+	float inMemo[8][8];
+	float buf;
 	int i, j, k;
 	int n = 8;
 

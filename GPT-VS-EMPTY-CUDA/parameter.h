@@ -2,7 +2,6 @@
 
 #define isGPU 1
 
-
 #define DATATYPE 2
 #define IMGDIR "."
 #define MAXITER 100 // Maximum iteration times

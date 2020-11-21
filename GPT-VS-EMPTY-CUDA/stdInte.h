@@ -11,15 +11,15 @@
 #define NI 8 /* For inverse matrix */
 
 /*----------------------------------------------------------------------------*/
-void copyNormalGpt(double inGpt[3][3], double outGpt[3][3]);
-void multplyMV(double inMat[NI][NI + 1], double v[NI]);
-void solveLEq(double inMat[NI][NI + 1]);
-void initGpt(double gpt[3][3]);
+void copyNormalGpt(float inGpt[3][3], float outGpt[3][3]);
+void multplyMV(float inMat[NI][NI + 1], float v[NI]);
+void solveLEq(float inMat[NI][NI + 1]);
+void initGpt(float gpt[3][3]);
 
-void calInte64(double* g_can, int* sHOG, int* inteAng,
-	double* inteCanDir, double* inteDx2Dir, double* inteDy2Dir);
-double sHoGpatInte(int* sHoG1, int* inteAng);
-void gptcorsHoGInte(int* sHoG1, double* g_can1,
-	int* sHoG2, double* g_can2, double* gwt, double* inteCanDir,
-	double* inteDx2Dir, double* inteDy2Dir, double dnn, double gpt[3][3]);
+void calInte64(float* g_can, int* sHOG, int* inteAng,
+	float* inteCanDir, float* inteDx2Dir, float* inteDy2Dir);
+float sHoGpatInte(int* sHoG1, int* inteAng);
+void gptcorsHoGInte(int* sHoG1, float* g_can1,
+	int* sHoG2, float* g_can2, float* gwt, float* inteCanDir,
+	float* inteDx2Dir, float* inteDy2Dir, float dnn, float gpt[3][3]);
 

@@ -37,12 +37,12 @@ void SaveData(T* data,const char* fileName,int x_size,int y_size)
 
 int main()
 {
-	double gpt1[3][3];
+	float gpt1[3][3];
 	initGpt2(gpt1, ZOOM, ZOOM * BETA, B1, B2, ROT);
 
 
 #pragma region Initial_Gauss_Function
-	double gk[ROW][COL];
+	float gk[ROW][COL];
 	for (int y = 0; y < ROW; y++)
 		for (int x = 0; x < COL; x++)
 			gk[y][x] = exp(-(x * x + y * y) / 2.0);
@@ -60,8 +60,8 @@ int main()
 
 	int *g_ang2 = new int[ROW*COL];	  // direction of gradients
 	int *sHoG2 = new int[(ROW - 4)*(COL - 4)];
-	double *g_nor2 = new double[ROW*COL]; // norm of gradients
-	double *g_can2 = new double[ROW*COL]; // canonicalized images
+	float *g_nor2 = new float[ROW*COL]; // norm of gradients
+	float *g_can2 = new float[ROW*COL]; // canonicalized images
 	procImg(g_can2, g_ang2, g_nor2, sHoG2, image1,1);
 #pragma endregion Load_And_Proc_Image
 
@@ -69,9 +69,9 @@ int main()
 	//積分画像計算　CUDA化する必要あります。
 #pragma region Calculate_Inte
 	int* inteAng = new int[ROWINTE*COLINTE*64];
-	double* inteCanDir = new double[ROWINTE*COLINTE*64];
-	double* inteDx2Dir = new double[ROWINTE*COLINTE*64];
-	double* inteDy2Dir = new double[ROWINTE*COLINTE*64];
+	float* inteCanDir = new float[ROWINTE*COLINTE*64];
+	float* inteDx2Dir = new float[ROWINTE*COLINTE*64];
+	float* inteDy2Dir = new float[ROWINTE*COLINTE*64];
 	calInte64(g_can2, sHoG2, inteAng, inteCanDir, inteDx2Dir, inteDy2Dir);
 #pragma endregion Calculate_Inte
 
@@ -100,13 +100,13 @@ int main()
 
 	int *g_ang1 = new int[ROW*COL];	  // direction of gradients
 	int *sHoG1 = new int[(ROW - 4)*(COL - 4)];
-	double *g_nor1 = new double[ROW*COL]; // norm of gradients
-	double *g_can1 = new double[ROW*COL]; // canonicalized images
+	float *g_nor1 = new float[ROW*COL]; // norm of gradients
+	float *g_can1 = new float[ROW*COL]; // canonicalized images
 	clock_t start1, end1;
 	start1 = clock();
 	procImg(g_can1, g_ang1, g_nor1, sHoG1, image2,0); 
 	end1 = clock();		//程序结束用时
-	double endtime1 = (double)(end1 - start1) / CLOCKS_PER_SEC;
+	float endtime1 = (float)(end1 - start1) / CLOCKS_PER_SEC;
 	cout << "Total time Proc:" << endtime1 * 1000 << "ms" << endl;	//ms为单位
 #pragma endregion Load_And_Proc_Image
 	cout << "process2 finished" << endl;
@@ -114,8 +114,8 @@ int main()
 
 #pragma region Calculate_Initial_Correlation
 	/* calculate the initial correlation */
-	double org_cor, gat_corf, gat_corb;
-	double old_cor0, old_cor1, new_cor1; //
+	float org_cor, gat_corf, gat_corb;
+	float old_cor0, old_cor1, new_cor1; //
 	old_cor1 = 0.0;
 	for (int y = MARGINE; y < ROW - MARGINE; y++)
 		for (int x = MARGINE; x < COL - MARGINE; x++)
@@ -125,18 +125,18 @@ int main()
 	old_cor0 = old_cor1;
 #pragma endregion Calculate_Initial_Correlation
 /*
-	SaveData<double>(g_can2, variableChar(gCan1), COL, ROW);
-	SaveData<double>(g_nor2, variableChar(gNor2), COL, ROW);
+	SaveData<float>(g_can2, variableChar(gCan1), COL, ROW);
+	SaveData<float>(g_nor2, variableChar(gNor2), COL, ROW);
 	SaveData<int>(g_ang2, variableChar(gAng2), COL, ROW);
-	SaveData<double>(g_can1, variableChar(gCan1), COL, ROW);
-	SaveData<double>(g_nor1, variableChar(gNor1), COL, ROW);
+	SaveData<float>(g_can1, variableChar(gCan1), COL, ROW);
+	SaveData<float>(g_nor1, variableChar(gNor1), COL, ROW);
 	SaveData<int>(g_ang1, variableChar(gAng1), COL, ROW);*/
 	
 	//Initial dnn
-	double d2 = 0.0;
-	double dnn = WNNDEsHoGD * sHoGpatInte(sHoG1, inteAng);
+	float d2 = 0.0;
+	float dnn = WNNDEsHoGD * sHoGpatInte(sHoG1, inteAng);
 
-	double* gwt = new double[ROW*COL];
+	float* gwt = new float[ROW*COL];
 
 	cout << dnn << endl;
 	cout << "test" << endl;
@@ -148,7 +148,7 @@ int main()
 		for (int iter = 0; iter < MAXITER; iter++)
 		{
 			//update gauss window function
-			double var = pow(WGT * dnn, 2);
+			float var = pow(WGT * dnn, 2);
 			for (int y = 0; y < ROW; y++)
 				for (int x = 0; x < COL; x++)
 					gwt[y*COL+x] = pow(gk[y][x], 1.0 / var);
@@ -172,7 +172,7 @@ int main()
 			printf("iter = %d, new col. = %f dnn = %f  var = %f (d2 = %f) \n", iter, new_cor1, dnn, 1 / var, d2);
 		}
 		end = clock();		//程序结束用时
-		double endtime = (double)(end - start) / CLOCKS_PER_SEC;
+		float endtime = (float)(end - start) / CLOCKS_PER_SEC;
 		cout << "Total time:" << endtime * 1000 << "ms" << endl;	//ms为单位
 
 
@@ -190,10 +190,10 @@ int main()
 		return 0;
 }
 
-void initGpt2(double gpt[3][3], double alpha, double beta, double b1, double b2, double rotation)
+void initGpt2(float gpt[3][3], float alpha, float beta, float b1, float b2, float rotation)
 {
 	int x, y;
-	double tmp[3][3], gpt_[3][3];
+	float tmp[3][3], gpt_[3][3];
 
 	for (x = 0; x < 3; x++)
 		for (y = 0; y < 3; y++)

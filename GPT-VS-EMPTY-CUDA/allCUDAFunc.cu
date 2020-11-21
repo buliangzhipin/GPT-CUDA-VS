@@ -51,7 +51,12 @@ __global__ void cuda_defcan1() {
 	int tid = ty * blockDim.x + tx;
 	int x = blockIdx.x*blockDim.x + threadIdx.x;
 	int y = blockIdx.y*blockDim.y + threadIdx.y;
+	__shared__ double sdata[3][TPB_X_TPB];
+
 	if ((y >= ROW) || (x >= COL)) {
+		sdata[0][tid] = 0.0;
+		sdata[1][tid] = 0.0;
+		sdata[2][tid] = 0;
 		return;
 	}
 
@@ -62,7 +67,6 @@ __global__ void cuda_defcan1() {
 		d_image1[y][x] != WHITE);
 
 	double this_pixel = condition * (double)d_image1[y][x];
-	__shared__ double sdata[3][TPB_X_TPB];
 	sdata[0][tid] = this_pixel;
 	sdata[1][tid] = this_pixel * this_pixel;
 	sdata[2][tid] = condition;
@@ -290,8 +294,13 @@ __global__ void cuda_sHoGpatInte(int nDnnL)
 	int x = blockIdx.x*blockDim.x + threadIdx.x;
 	int y = blockIdx.y*blockDim.y + threadIdx.y;
 
+	__shared__ double sdataD[TPB_X_TPB];
+	__shared__ int sdataI[TPB_X_TPB];
+
 	if (x >= COL - 4 || y >= ROW - 4)
 	{
+		sdataD[tid] = 0.0;
+		sdataI[tid] = 0;
 		return;
 	}
 	int maxWinP = MAXWINDOWSIZE + 1;
@@ -319,8 +328,7 @@ __global__ void cuda_sHoGpatInte(int nDnnL)
 		}
 	}
 
-	__shared__ double sdataD[TPB_X_TPB];
-	__shared__ int sdataI[TPB_X_TPB];
+
 	sdataD[tid] = dnn;
 	sdataI[tid] = count;
 

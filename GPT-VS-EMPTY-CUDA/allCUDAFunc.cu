@@ -88,7 +88,12 @@ __global__ void cuda_defcan1() {
 	int tid = ty * blockDim.x + tx;
 	int x = blockIdx.x*blockDim.x + threadIdx.x;
 	int y = blockIdx.y*blockDim.y + threadIdx.y;
+	__shared__ double sdata[3][TPB_X_TPB];
+
 	if ((y >= ROW) || (x >= COL)) {
+		sdata[0][tid] = 0.0;
+		sdata[1][tid] = 0.0;
+		sdata[2][tid] = 0.0;
 		return;
 	}
 
@@ -99,7 +104,6 @@ __global__ void cuda_defcan1() {
 		d_image1[y][x] != WHITE);
 
 	double this_pixel = condition * (double)d_image1[y][x];
-	__shared__ double sdata[3][TPB_X_TPB];
 	sdata[0][tid] = this_pixel;
 	sdata[1][tid] = this_pixel * this_pixel;
 	sdata[2][tid] = condition;
@@ -215,41 +219,41 @@ void cuda_procImg(double* g_can, int* g_ang, double* g_nor, unsigned char* image
 	setGPUSize(COL,ROW,TPB,TPB);
 	cudaMemset(d_cuda_defcan_vars_ptr, 0, 3 * sizeof(double));
 	cuda_defcan1 << <numBlock, numThread >> > ();
-	//double* cuda_defcan_array = new double[3 * 256];
-	//cudaMemcpy(cuda_defcan_array, d_cuda_defcan_array_ptr, 3 * 256 * sizeof(double), cudaMemcpyDeviceToHost);
-	//for (int i = 0; i < numBlock.x * numBlock.y + 10; i++)
-	//{
-	//	cout << cuda_defcan_array[i] << " " << cuda_defcan_array[i + 256] << " " << cuda_defcan_array[i + 512] << endl;
-	//}
-	//double num1 = 0;
-	//double num2 = 0;
-	//double num3 = 0;
-	//for (int i = 0; i < numBlock.x * numBlock.y + 10; i++)
-	//{
-	//	num1 += cuda_defcan_array[i];
-	//	num2 += cuda_defcan_array[i+256];
-	//	num3 += cuda_defcan_array[i + 512];
-	//}
+	double* cuda_defcan_array = new double[3 * 256];
+	cudaMemcpy(cuda_defcan_array, d_cuda_defcan_array_ptr, 3 * 256 * sizeof(double), cudaMemcpyDeviceToHost);
+	for (int i = 0; i < numBlock.x * numBlock.y + 10; i++)
+	{
+		cout << cuda_defcan_array[i] << " " << cuda_defcan_array[i + 256] << " " << cuda_defcan_array[i + 512] << endl;
+	}
+	double num1 = 0;
+	double num2 = 0;
+	double num3 = 0;
+	for (int i = 0; i < numBlock.x * numBlock.y + 10; i++)
+	{
+		num1 += cuda_defcan_array[i];
+		num2 += cuda_defcan_array[i+256];
+		num3 += cuda_defcan_array[i + 512];
+	}
 
-	//cout << "sum cpu" << endl;
-	//cout << num1 << " " << num2 << " " << num3 << endl;
+	cout << "sum cpu" << endl;
+	cout << num1 << " " << num2 << " " << num3 << endl;
 	unsigned int size = nextPow2(numBlock.x * numBlock.y);
 	cuda_defcan_add << <1, size >> > ();
 	cuda_defcan2 << <numBlock, numThread >> > ();
 	cuda_roberts8 << <numBlock, numThread >> > ();
 
-	//double* cuda_defcan = new double[3];
-	//cudaMemcpy(cuda_defcan, d_cuda_defcan_vars_ptr, 3* sizeof(double), cudaMemcpyDeviceToHost);
+	double* cuda_defcan = new double[3];
+	cudaMemcpy(cuda_defcan, d_cuda_defcan_vars_ptr, 3* sizeof(double), cudaMemcpyDeviceToHost);
 
-	//double* cuda_defcan_array2 = new double[3 * 256];
-	//cudaMemcpy(cuda_defcan_array2, d_cuda_defcan_array_ptr, 3 * 256 * sizeof(double), cudaMemcpyDeviceToHost);
-	//for (int i = 0; i < numBlock.x * numBlock.y + 10; i++)
-	//{
-	//	cout << cuda_defcan_array2[i] << " " << cuda_defcan_array2[i + 256] << " " << cuda_defcan_array2[i + 512] << endl;
-	//}
+	double* cuda_defcan_array2 = new double[3 * 256];
+	cudaMemcpy(cuda_defcan_array2, d_cuda_defcan_array_ptr, 3 * 256 * sizeof(double), cudaMemcpyDeviceToHost);
+	for (int i = 0; i < numBlock.x * numBlock.y + 10; i++)
+	{
+		cout << cuda_defcan_array2[i] << " " << cuda_defcan_array2[i + 256] << " " << cuda_defcan_array2[i + 512] << endl;
+	}
 
-	//cout << "sum" << endl;
-	//cout << cuda_defcan[0] << " " << cuda_defcan[1] << " " << cuda_defcan[2] << endl;
+	cout << "sum" << endl;
+	cout << cuda_defcan[0] << " " << cuda_defcan[1] << " " << cuda_defcan[2] << endl;
 	cudaMemcpy(g_can, d_g_can1_ptr, ROW*COL * sizeof(double), cudaMemcpyDeviceToHost);
 	cudaMemcpy(g_ang, d_g_ang1_ptr, ROW*COL * sizeof(int), cudaMemcpyDeviceToHost);
 	cudaMemcpy(g_nor, d_g_nor1_ptr, ROW*COL * sizeof(double), cudaMemcpyDeviceToHost);
@@ -370,8 +374,13 @@ __global__ void cuda_sHoGpatInte(int nDnnL)
 	int x = blockIdx.x*blockDim.x + threadIdx.x;
 	int y = blockIdx.y*blockDim.y + threadIdx.y;
 
+	__shared__ double sdataD[TPB_X_TPB];
+	__shared__ int sdataI[TPB_X_TPB];
+
 	if (x >= COL - 4 || y >= ROW - 4)
 	{
+		sdataD[tid] = 0.0;
+		sdataI[tid] = 0;
 		return;
 	}
 	int maxWinP = MAXWINDOWSIZE + 1;
@@ -399,8 +408,6 @@ __global__ void cuda_sHoGpatInte(int nDnnL)
 		}
 	}
 
-	__shared__ double sdataD[TPB_X_TPB];
-	__shared__ int sdataI[TPB_X_TPB];
 	sdataD[tid] = dnn;
 	sdataI[tid] = count;
 

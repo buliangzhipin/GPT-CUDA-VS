@@ -4,90 +4,7 @@
 #include "utility.h"
 #include <stdio.h>
 
-void copyNormalGpt(double inGpt[3][3], double outGpt[3][3])
-{
-	int i, j;
-	double nf = 1.0 / inGpt[2][2];
-	for (i = 0; i < 3; ++i)
-	{
-		for (j = 0; j < 3; ++j)
-		{
-			outGpt[i][j] = nf * inGpt[i][j];
-		}
-	}
-}
 
-void multplyMV(double inMat[NI][NI + 1], double v[NI])
-{
-	int i, j;
-	double sum;
-	for (i = 0; i < NI; ++i)
-	{
-		sum = 0.0;
-		for (j = 0; j < NI; ++j)
-		{
-			sum += inMat[i][j] * inMat[j][NI];
-		}
-		v[i] = sum;
-	}
-}
-
-void solveLEq(double inMat[NI][NI + 1])
-{
-	int i, j, j2, maxI;
-	double tmp, pivVal;
-
-	//printNxN1(inMat);
-	for (j = 0; j < NI; ++j)
-	{
-		/* Search pivot */
-		maxI = j;
-		for (i = j + 1; i < NI; ++i)
-		{
-			if (fabs(inMat[i][j]) > fabs(inMat[maxI][j]))
-				maxI = i;
-		}
-		pivVal = inMat[maxI][j];
-		if (maxI != j)
-		{
-			/* Swap j th row and maxI th row */
-			for (j2 = 0; j2 < NI + 1; ++j2)
-			{
-				tmp = inMat[j][j2];
-				inMat[j][j2] = inMat[maxI][j2] / pivVal;
-				inMat[maxI][j2] = tmp;
-			}
-		}
-		else
-		{
-			for (j2 = 0; j2 < NI + 1; ++j2)
-				inMat[j][j2] /= pivVal;
-		}
-		for (i = 0; i < NI; ++i)
-		{
-			if (i == j)
-				continue;
-			pivVal = inMat[i][j];
-			for (j2 = 0; j2 < NI + 1; ++j2)
-				inMat[i][j2] -= pivVal * inMat[j][j2];
-		}
-		//printNxN(inMat);
-	}
-}
-
-//int sHoG2Idx(char sHoG)
-//{
-//	int tempValue = sHoG;
-//	int quot, remd;
-//	if (tempValue == -1)
-//		return -1;
-//	if (tempValue < 10)
-//		return tempValue;
-//
-//	quot = tempValue / 10;
-//	remd = tempValue % 10;
-//	return (quot*8 + remd);
-//}
 
 void calInte64(double* g_can, int* sHOG, int* inteAng,
 	double* inteCanDir, double* inteDx2Dir, double* inteDy2Dir)
@@ -241,7 +158,9 @@ double sHoGpatInte(int* sHoG1, int* inteAng)
 	}
 }
 
-void gptcorsHoGInte(int* sHoG1, double* g_can1,
+
+
+void gptcorsHoGInteCPU(int* sHoG1, double* g_can1,
 	int* sHoG2, double* g_can2, double* gwt, double* inteCanDir,
 	double* inteDx2Dir, double* inteDy2Dir, double dnn, double gpt[3][3])
 {
@@ -526,15 +445,18 @@ void gptcorsHoGInte(int* sHoG1, double* g_can1,
 	copyNormalGpt(tGpt2, gpt);
 }
 
-void initGpt(double gpt[3][3])
+void gptcorsHoGInte(int* sHoG1, double* g_can1,
+	int* sHoG2, double* g_can2, double* gwt, double* inteCanDir,
+	double* inteDx2Dir, double* inteDy2Dir, double dnn, double gpt[3][3])
 {
-	gpt[0][0] = 1.0;
-	gpt[0][1] = 0.0;
-	gpt[1][0] = 0.0;
-	gpt[1][1] = 1.0;
-	gpt[0][2] = 0.0;
-	gpt[1][2] = 0.0;
-	gpt[2][0] = 0.0;
-	gpt[2][1] = 0.0;
-	gpt[2][2] = 1.0;
+	if (isGPU == 0)
+	{
+		gptcorsHoGInteCPU(sHoG1, g_can1,
+			sHoG2, g_can2, gwt, inteCanDir,
+			inteDx2Dir, inteDy2Dir, dnn, gpt);
+	}
+	else
+	{
+		gptcorsHoGInteGPU(dnn, gpt);
+	}
 }

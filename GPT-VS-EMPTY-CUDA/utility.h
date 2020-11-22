@@ -17,3 +17,8 @@ template<typename  T> void changeValue(T* t1, T* t2) {
 	*t1 = *t2;
 	*t2 = tmpT;
 }
+
+void initGpt(double gpt[3][3]);
+void multplyMV(double inMat[NI][NI + 1], double v[NI]);
+void solveLEq(double inMat[NI][NI + 1]);
+void copyNormalGpt(double inGpt[3][3], double outGpt[3][3]);

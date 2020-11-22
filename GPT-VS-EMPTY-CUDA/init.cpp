@@ -14,6 +14,7 @@ void procImg(double* g_can, int* g_ang, double* g_nor, int* sHoG, unsigned char*
 	// Morris Lee
 	cuda_procImg(g_can, g_ang, g_nor, image1, initial);
 	smplHoG64(sHoG, g_ang, g_nor);
+	updatesHoG(sHoG);
 #endif
 }
 

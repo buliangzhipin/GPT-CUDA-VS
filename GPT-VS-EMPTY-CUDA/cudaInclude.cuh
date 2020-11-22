@@ -42,6 +42,9 @@ __device__ double d_inteAng[ROWINTE][COLINTE][64];
 #pragma region Parameter
 #define TPB 32
 #define TPB_X_TPB TPB*TPB
+#define TPB_LOW 32
+#define TPBL_X_TPBL 32
+
 #define G_NUM 30
 #pragma endregion Parameter
 

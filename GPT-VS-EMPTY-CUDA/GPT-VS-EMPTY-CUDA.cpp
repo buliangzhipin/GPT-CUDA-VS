@@ -76,6 +76,7 @@ int main()
 #pragma endregion Calculate_Inte
 
 	sHoGpatInitial(inteAng);
+	sHoGcoreInitial(inteCanDir, inteDx2Dir, inteDy2Dir);
 
 	cout << "process1 finished" << endl;
 

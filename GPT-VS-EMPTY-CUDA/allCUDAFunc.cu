@@ -9,10 +9,13 @@ __device__ unsigned char d_image2[ROW2][COL2];
 __device__ double d_g_can1[ROW][COL], d_g_nor1[ROW][COL], d_gpt[3][3];
 __device__ int d_g_ang1[ROW][COL], d_sHoG[ROW - 4][COL - 4];
 __device__ int d_inteAng[64][ROWINTE][COLINTE];
+__device__ double d_inteCanDir[64][ROWINTE][COLINTE];
+__device__ double d_inteDx2Dir[64][ROWINTE][COLINTE];
+__device__ double d_inteDy2Dir[64][ROWINTE][COLINTE];
 
 void *d_image1_ptr,*d_image2_ptr;
 void *d_g_can1_ptr, *d_g_ang1_ptr, *d_g_nor1_ptr,*d_gpt_ptr;
-void *d_inteAng_ptr;
+void *d_inteAng_ptr, *d_inteCanDir_ptr, *d_inteDx2Dir_ptr, *d_inteDy2Dir_ptr;
 void *d_sHoG_ptr;
 #pragma endregion CommonDeviceMemory
 
@@ -29,26 +32,26 @@ void setGPUSize(int blockX, int blockY, int threadX, int threadY)
 	numThread.y = threadY;
 }
 
-//template<typename T>
-//__device__ void customAdd(T* sdata, T* g_odata) {
-//	int tx = threadIdx.x;
-//	int ty = threadIdx.y;
-//	int tid = ty * blockDim.x + tx;
-//	// do reduction in shared mem
-//	if (tid < 512) { sdata[tid] += sdata[tid + 512]; } __syncthreads();
-//	if (tid < 256) { sdata[tid] += sdata[tid + 256]; } __syncthreads();
-//	if (tid < 128) { sdata[tid] += sdata[tid + 128]; } __syncthreads();
-//	if (tid < 64) { sdata[tid] += sdata[tid + 64]; } __syncthreads();
-//	if (tid < 32) { sdata[tid] += sdata[tid + 32]; }__syncthreads();
-//	if (tid < 16) { sdata[tid] += sdata[tid + 16]; }__syncthreads();
-//	if (tid < 8) { sdata[tid] += sdata[tid + 8]; }__syncthreads();
-//	if (tid < 4) { sdata[tid] += sdata[tid + 4]; }__syncthreads();
-//	if (tid < 2) { sdata[tid] += sdata[tid + 2]; }__syncthreads();
-//	if (tid < 1) { sdata[tid] += sdata[tid + 1]; }__syncthreads();
-//	// write result for this block to global mem
-//	if (tid == 0) { atomicAdd(g_odata, sdata[tid]); }
-//
-//}
+template<typename T>
+__device__ void customAdd(T* sdata, T* g_odata) {
+	int tx = threadIdx.x;
+	int ty = threadIdx.y;
+	int tid = ty * blockDim.x + tx;
+	// do reduction in shared mem
+	if (tid < 512) { sdata[tid] += sdata[tid + 512]; } __syncthreads();
+	if (tid < 256) { sdata[tid] += sdata[tid + 256]; } __syncthreads();
+	if (tid < 128) { sdata[tid] += sdata[tid + 128]; } __syncthreads();
+	if (tid < 64) { sdata[tid] += sdata[tid + 64]; } __syncthreads();
+	if (tid < 32) { sdata[tid] += sdata[tid + 32]; }__syncthreads();
+	if (tid < 16) { sdata[tid] += sdata[tid + 16]; }__syncthreads();
+	if (tid < 8) { sdata[tid] += sdata[tid + 8]; }__syncthreads();
+	if (tid < 4) { sdata[tid] += sdata[tid + 4]; }__syncthreads();
+	if (tid < 2) { sdata[tid] += sdata[tid + 2]; }__syncthreads();
+	if (tid < 1) { sdata[tid] += sdata[tid + 1]; }__syncthreads();
+	// write result for this block to global mem
+	if (tid == 0) { atomicAdd(g_odata, sdata[tid]); }
+
+}
 
 template<typename T>
 __global__ void cuda_sumMatrix(T* martrix, T* out, int y_size, int x_size, int shift)
@@ -184,6 +187,7 @@ void procImageInitial()
 	gpuErrchk(cudaGetSymbolAddress(&d_g_can1_ptr, d_g_can1));
 	gpuErrchk(cudaGetSymbolAddress(&d_g_nor1_ptr, d_g_nor1));
 	gpuErrchk(cudaGetSymbolAddress(&d_g_ang1_ptr, d_g_ang1));
+	gpuErrchk(cudaGetSymbolAddress(&d_sHoG_ptr, d_sHoG));
 	gpuErrchk(cudaGetSymbolAddress((void**)&d_cuda_defcan_vars_ptr, d_cuda_defcan_vars));
 	gpuErrchk(cudaGetSymbolAddress((void**)&d_cuda_defcan_vars_array_ptr, d_cuda_defcan_vars_array));
 	gpuStop()	
@@ -211,6 +215,11 @@ void cuda_procImg(double* g_can, int* g_ang, double* g_nor, unsigned char* image
 	cudaMemcpy(g_nor, d_g_nor1_ptr, ROW*COL * sizeof(double), cudaMemcpyDeviceToHost);
 	gpuStop()
 
+}
+
+void updatesHoG(int *sHoG)
+{
+	cudaMemcpy(d_sHoG_ptr, sHoG, (ROW - 4)*(COL - 4) * sizeof(int), cudaMemcpyHostToDevice);
 }
 #pragma endregion ProcImage
 
@@ -314,19 +323,15 @@ int *d_count_array_ptr;
 void sHoGpatInitial(int *inteAng)
 {
 	gpuErrchk(cudaGetSymbolAddress(&d_inteAng_ptr, d_inteAng));
-	gpuErrchk(cudaGetSymbolAddress(&d_sHoG_ptr, d_sHoG));
-
 	gpuErrchk(cudaGetSymbolAddress((void**)&d_dnn_ptr, d_dnn));
 	gpuErrchk(cudaGetSymbolAddress((void**)&d_dnn_array_ptr, d_dnn_array));
+
 
 	gpuErrchk(cudaGetSymbolAddress((void**)&d_count_ptr, d_count));
 	gpuErrchk(cudaGetSymbolAddress((void**)&d_count_array_ptr, d_count_array));
 
+
 	cudaMemcpy(d_inteAng_ptr, inteAng, ROWINTE*COLINTE * 64 * sizeof(int), cudaMemcpyHostToDevice);
-
-	double *test = new double[64 * ROWINTE*COLINTE];
-	cudaMemcpy(test, d_inteAng_ptr, ROWINTE*COLINTE * 64 * sizeof(int), cudaMemcpyDeviceToHost);
-
 	gpuStop()
 }
 
@@ -410,3 +415,206 @@ double sHoGpatInteGPU(int* sHoG1)
 }
 
 #pragma endregion SHoGPat
+
+#pragma region SHoGCore
+
+//__device__ double d_g_sum_arrary[27*(ROW - 4)*(COL - 4)];
+__device__ double d_matrixSum[32];
+
+void *d_matrixSum_ptr;
+double *matrixSum;
+
+void sHoGcoreInitial(double *inteCanDir, double *inteDx2Dir, double *inteDy2Dir)
+{
+	matrixSum = new double[27];
+	gpuErrchk(cudaGetSymbolAddress(&d_matrixSum_ptr, d_matrixSum));
+	gpuErrchk(cudaGetSymbolAddress(&d_inteCanDir_ptr, d_inteCanDir));
+	gpuErrchk(cudaGetSymbolAddress(&d_inteDx2Dir_ptr, d_inteDx2Dir));
+	gpuErrchk(cudaGetSymbolAddress(&d_inteDy2Dir_ptr, d_inteDy2Dir));
+	cudaMemcpy(d_inteCanDir_ptr, inteCanDir, ROWINTE*COLINTE * 64 * sizeof(double), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_inteDx2Dir_ptr, inteDx2Dir, ROWINTE*COLINTE * 64 * sizeof(double), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_inteDy2Dir_ptr, inteDy2Dir, ROWINTE*COLINTE * 64 * sizeof(double), cudaMemcpyHostToDevice);
+	gpuStop()
+}
+
+__global__ void cuda_gptcorsHoGInte(double dnn, int pPos, int mPos)
+{
+	int tid = threadIdx.y * blockDim.x + threadIdx.x;
+	int x1 = blockIdx.x*blockDim.x + threadIdx.x + 2;
+	int y1 = blockIdx.y*blockDim.y + threadIdx.y + 2;
+
+	__shared__ double sdata[TPB_X_TPB];
+	sdata[tid] = 0;
+
+	if (x1 >= COL - 2 || y1 >= ROW - 2)
+	{
+		return;
+	}
+	int dy1 = y1 - CY;
+	int dx1 = x1 - CX;
+	double t0 = 0, tx2 = 0, ty2 = 0;
+
+
+	int ang;
+	if ((ang = d_sHoG[y1 - 2][x1 - 2]) != -1)
+	{
+		t0 = d_inteCanDir[ang][y1 + pPos][x1 + pPos] - d_inteCanDir[ang][y1 + pPos][x1 + mPos]
+			- d_inteCanDir[ang][y1 + mPos][x1 + pPos] + d_inteCanDir[ang][y1 + mPos][x1 + mPos];
+		tx2 = d_inteDx2Dir[ang][y1 + pPos][x1 + pPos] - d_inteDx2Dir[ang][y1 + pPos][x1 + mPos]
+			- d_inteDx2Dir[ang][y1 + mPos][x1 + pPos] + d_inteDx2Dir[ang][y1 + mPos][x1 + mPos];
+		ty2 = d_inteDy2Dir[ang][y1 + pPos][x1 + pPos] - d_inteDy2Dir[ang][y1 + pPos][x1 + mPos]
+			- d_inteDy2Dir[ang][y1 + mPos][x1 + pPos] + d_inteDy2Dir[ang][y1 + mPos][x1 + mPos];
+		double image = d_g_can1[y1][x1];
+		t0 *= image;
+		tx2 *= image;
+		ty2 *= image;
+	}
+
+	double tx1, tx1x1, tx1x1x1;
+	double tx2x1, ty2x1, tx2y1, ty2y1;
+
+
+	sdata[tid] = tx1 = t0 * dx1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 1);
+
+	sdata[tid] = tx1x1 = tx1 * dx1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 3);
+
+	sdata[tid] = tx1x1x1 = tx1x1 * dx1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 6);
+
+	sdata[tid] = tx1x1x1 * dx1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 10);
+
+	sdata[tid] = tx1x1x1 * dy1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 11);
+
+
+
+	//g0
+	sdata[tid] = t0;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum);
+	//gy1
+	t0 *= dy1;
+	sdata[tid] = t0;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 2);
+	//gy1y1
+	t0 *= dy1;
+	sdata[tid] = t0;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 5);
+	//gy1y1y1
+	t0 *= dy1;
+	sdata[tid] = t0;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 9);
+	//gy1y1y1y1
+	t0 *= dy1;
+	sdata[tid] = t0;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 14);
+
+	//gx1y1
+	tx1 *= dy1;
+	sdata[tid] = tx1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 4);
+	//gx1y1y1
+	tx1 *= dy1;
+	sdata[tid] = tx1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 8);
+	//gx1y1y1y1
+	tx1 *= dy1;
+	sdata[tid] = tx1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 13);
+
+	//gx1x1y1
+	tx1x1 *= dy1;
+	sdata[tid] = tx1x1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 7);
+	//gx1x1y1y1
+	tx1x1 *= dy1;
+	sdata[tid] = tx1x1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 12);
+
+
+
+	sdata[tid] = tx2;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 15);
+
+	sdata[tid] = ty2;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 16);
+
+	sdata[tid] = tx2x1 = tx2 * dx1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 17);
+
+	sdata[tid] = ty2x1 = ty2 * dx1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 18);
+
+	sdata[tid] = tx2y1 = tx2 * dy1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 19);
+
+	sdata[tid] = ty2y1 = ty2 * dy1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 20);
+
+	sdata[tid] = tx2x1 * dx1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 21);
+
+	sdata[tid] = ty2x1 * dx1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 22);
+
+	sdata[tid] = tx2x1 * dy1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 23);
+
+	sdata[tid] = ty2x1 * dy1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 24);
+
+	sdata[tid] = tx2y1 * dy1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 25);
+
+	sdata[tid] = ty2y1 * dy1;
+	__syncthreads();
+	customAdd(sdata, d_matrixSum + 26);
+}
+
+double* gptcorsHoGInteGPU(double dnn) 
+{
+	int windowS = (int)(WGS * WGT * dnn + 0.9999);
+	int pPos, mPos;
+	if (windowS > MAXWINDOWSIZE)
+		windowS = MAXWINDOWSIZE;
+	pPos = MAXWINDOWSIZE + 1 + windowS;
+	mPos = MAXWINDOWSIZE - windowS;
+	setGPUSize(COL, ROW, TPB, TPB);
+	cudaMemset(d_matrixSum_ptr, 0, 27 * sizeof(double));
+	cuda_gptcorsHoGInte << <numBlock, numThread >> > (dnn, pPos, mPos);
+	cudaMemcpy(matrixSum, d_matrixSum_ptr, 27 * sizeof(double), cudaMemcpyDeviceToHost);
+
+	return matrixSum;
+}
+
+
+#pragma endregion SHoGPat
+

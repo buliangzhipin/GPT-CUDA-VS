@@ -76,6 +76,8 @@ int main()
 #pragma endregion Calculate_Inte
 
 	sHoGpatInitial(inteAng);
+	sHoGcoreInitial(inteCanDir, inteDx2Dir, inteDy2Dir);
+
 
 	cout << "process1 finished" << endl;
 
@@ -147,29 +149,23 @@ int main()
 		start = clock();
 		for (int iter = 0; iter < MAXITER; iter++)
 		{
-			//update gauss window function
-			double var = pow(WGT * dnn, 2);
-			for (int y = 0; y < ROW; y++)
-				for (int x = 0; x < COL; x++)
-					gwt[y*COL+x] = pow(gk[y][x], 1.0 / var);
-
 			//Match
 			gptcorsHoGInte(sHoG1, g_can1, sHoG2, g_can2, gwt, inteCanDir, inteDx2Dir, inteDy2Dir, dnn, gpt1);
 			/* transform the test image and update g_can1, g_ang1, g_nor1, g_HoG1, sHoG1 */
-			for (int y = 0; y < ROW2; y++)
-				for (int x = 0; x < COL2; x++)
-					image1[y*COL2+x] = (unsigned char)image3[y*COL2+x];
+			//for (int y = 0; y < ROW2; y++)
+			//	for (int x = 0; x < COL2; x++)
+			//		image1[y*COL2+x] = (unsigned char)image3[y*COL2+x];
 			bilinear_normal_projection(gpt1, COL, ROW, COL2, ROW2, image1, image2,0);
 			procImg(g_can1, g_ang1, g_nor1, sHoG1, image2,0);
 
 			/* update correlation */
 			new_cor1 = 0.0;
-			for (int y = margine; y < ROW - margine; y++)
-				for (int x = margine; x < COL - margine; x++)
-					new_cor1 += g_can1[y*COL+x] * g_can2[y*COL+x];
+			//for (int y = margine; y < ROW - margine; y++)
+			//	for (int x = margine; x < COL - margine; x++)
+			//		new_cor1 += g_can1[y*COL+x] * g_can2[y*COL+x];
 		
 			dnn = WNNDEsHoGD * sHoGpatInte(sHoG1, inteAng);
-			printf("iter = %d, new col. = %f dnn = %f  var = %f (d2 = %f) \n", iter, new_cor1, dnn, 1 / var, d2);
+			//printf("iter = %d, new col. = %f dnn = %f   (d2 = %f) \n", iter, new_cor1, dnn, d2);
 		}
 		end = clock();		//程序结束用时
 		double endtime = (double)(end - start) / CLOCKS_PER_SEC;

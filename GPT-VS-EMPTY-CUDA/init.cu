@@ -238,11 +238,11 @@ void cuda_procImg(double* g_can, int* g_ang, double* g_nor, unsigned char* image
 //	bool GPU = true;
 //
 //	int N = 1000000;
-//	float *host_x, *host_y, *dev_x, *dev_y;
+//	double *host_x, *host_y, *dev_x, *dev_y;
 //
 //	// CPU側の領域確保
-//	host_x = (float*)malloc(N * sizeof(float));
-//	host_y = (float*)malloc(N * sizeof(float));
+//	host_x = (double*)malloc(N * sizeof(double));
+//	host_y = (double*)malloc(N * sizeof(double));
 //
 //	// 乱数値を入力する
 //	for (int i = 0; i < N; i++) {
@@ -254,17 +254,17 @@ void cuda_procImg(double* g_can, int* g_ang, double* g_nor, unsigned char* image
 //	if (GPU == true) {
 //
 //		// デバイス(GPU)側の領域確保
-//		cudaMalloc(&dev_x, N * sizeof(float));
-//		cudaMalloc(&dev_y, N * sizeof(float));
+//		cudaMalloc(&dev_x, N * sizeof(double));
+//		cudaMalloc(&dev_y, N * sizeof(double));
 //
 //		// CPU⇒GPUのデータコピー
-//		cudaMemcpy(dev_x, host_x, N * sizeof(float), cudaMemcpyHostToDevice);
+//		cudaMemcpy(dev_x, host_x, N * sizeof(double), cudaMemcpyHostToDevice);
 //
 //		// GPUで計算
 //		gpu_function << <(N + 255) / 256, 256 >> > (dev_x, dev_y);
 //
 //		// GPU⇒CPUのデータコピー
-//		cudaMemcpy(host_y, dev_y, N * sizeof(float), cudaMemcpyDeviceToHost);
+//		cudaMemcpy(host_y, dev_y, N * sizeof(double), cudaMemcpyDeviceToHost);
 //
 //	}
 //	else {
@@ -275,7 +275,7 @@ void cuda_procImg(double* g_can, int* g_ang, double* g_nor, unsigned char* image
 //	int end = clock();
 //
 //	// 計算が正しく行われているか確認
-//	float sum = 0.0f;
+//	double sum = 0.0f;
 //	for (int j = 0; j < N; j++) {
 //		sum += host_y[j];
 //	}

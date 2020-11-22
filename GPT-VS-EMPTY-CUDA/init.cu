@@ -7,12 +7,16 @@
 #include "init_cuda.h"
 
 #pragma region DeviceMemoryPointer
-void *d_cuda_defcan_vars_ptr;
+double *d_cuda_defcan_vars_ptr;
+double *d_cuda_defcan_vars_array_ptr;
 void *d_image1_ptr;
 void *d_g_can1_ptr, *d_g_ang1_ptr, *d_g_nor1_ptr;
 #pragma endregion DeviceMemoryPointer
 
-int iDivUp(int hostPtr, int b) { return ((hostPtr % b) != 0) ? (hostPtr / b + 1) : (hostPtr / b); };
+int iDivUp(int hostPtr, int b) 
+{ 
+	return ((hostPtr + b - 1) / b); 
+}
 
 
 dim3 numBlock;
@@ -47,10 +51,35 @@ __device__ void customAdd(T* sdata, T* g_odata) {
 
 }
 
+
+__global__ void cuda_sumMatrix(double* martrix,double* out,int x_size, int y_size,int shift)
+{
+	int tid = threadIdx.x;
+	int location = blockIdx.x*blockDim.x + threadIdx.x;
+	int totalSize = x_size * y_size;
+
+	__shared__ double sdata[TPB_X_TPB];
+	if (location >= totalSize) {
+		sdata[tid] = 0;
+		return;
+	}
+
+	sdata[tid] = martrix[location + shift * totalSize];
+	__syncthreads();
+	if (tid < 512) { sdata[tid] += sdata[tid + 512]; } __syncthreads();
+	if (tid < 256) { sdata[tid] += sdata[tid + 256]; } __syncthreads();
+	if (tid < 128) { sdata[tid] += sdata[tid + 128]; } __syncthreads();
+	if (tid < 64) { sdata[tid] += sdata[tid + 64]; } __syncthreads();
+	if (tid < 32) { sdata[tid] += sdata[tid + 32]; }__syncthreads();
+	if (tid < 16) { sdata[tid] += sdata[tid + 16]; }__syncthreads();
+	if (tid < 8) { sdata[tid] += sdata[tid + 8]; }__syncthreads();
+	if (tid < 4) { sdata[tid] += sdata[tid + 4]; }__syncthreads();
+	if (tid < 2) { sdata[tid] += sdata[tid + 2]; }__syncthreads();
+	if (tid < 1) { sdata[tid] += sdata[tid + 1]; }__syncthreads();
+	if (tid == 0) { atomicAdd(&out[shift], sdata[tid]); }
+}
+
 __global__ void cuda_defcan1() {
-	int tx = threadIdx.x;
-	int ty = threadIdx.y;
-	int tid = ty * blockDim.x + tx;
 	int x = blockIdx.x*blockDim.x + threadIdx.x;
 	int y = blockIdx.y*blockDim.y + threadIdx.y;
 	if ((y >= ROW) || (x >= COL)) {
@@ -58,22 +87,14 @@ __global__ void cuda_defcan1() {
 	}
 
 	/* definite canonicalization */
-	int margine = CANMARGIN / 2;
-	int condition = ((x >= margine && y >= margine) &&
-		(x < COL - margine) && (y < ROW - margine) &&
-		d_image1[y][x] != WHITE);
+	int condition = (d_image1[y][x] != WHITE);
 
 	double this_pixel = condition * (double)d_image1[y][x];
-	__shared__ double sdata[3][TPB_X_TPB];
-	sdata[0][tid] = this_pixel;
-	sdata[1][tid] = this_pixel * this_pixel;
-	sdata[2][tid] = condition;
 
-	__syncthreads();
+	d_cuda_defcan_vars_array[y*COL + x] = this_pixel;
+	d_cuda_defcan_vars_array[y*COL + x + ROW*COL] = this_pixel * this_pixel;
+	d_cuda_defcan_vars_array[y*COL + x + 2*ROW*COL] = condition;
 
-	customAdd(sdata[0], d_cuda_defcan_vars);
-	customAdd(sdata[1], d_cuda_defcan_vars + 1);
-	customAdd(sdata[2], d_cuda_defcan_vars + 2);
 }
 __global__ void cuda_defcan2() {
 	int x = blockIdx.x*blockDim.x + threadIdx.x;
@@ -164,7 +185,8 @@ void procImageInitial()
 	gpuErrchk(cudaGetSymbolAddress(&d_g_can1_ptr, d_g_can1));
 	gpuErrchk(cudaGetSymbolAddress(&d_g_nor1_ptr, d_g_nor1));
 	gpuErrchk(cudaGetSymbolAddress(&d_g_ang1_ptr, d_g_ang1));
-	gpuErrchk(cudaGetSymbolAddress(&d_cuda_defcan_vars_ptr, d_cuda_defcan_vars));
+	gpuErrchk(cudaGetSymbolAddress((void**)&d_cuda_defcan_vars_ptr, d_cuda_defcan_vars));
+	gpuErrchk(cudaGetSymbolAddress((void**)&d_cuda_defcan_vars_array_ptr, d_cuda_defcan_vars_array));
 	gpuStop()	
 }
 
@@ -177,10 +199,34 @@ void cuda_procImg(double* g_can, int* g_ang, double* g_nor, unsigned char* image
 
 	setGPUSize(COL,ROW,TPB,TPB);
 	cuda_defcan1 << <numBlock, numThread >> > ();
+
+	int totalSize = ROW * COL;
+	int blockSize = TPB_X_TPB;
+	int size = ((totalSize + blockSize - 1) / blockSize);
+
+	//double data[3];
+
+	cuda_sumMatrix << <size, TPB_X_TPB >> > (d_cuda_defcan_vars_array_ptr, d_cuda_defcan_vars_ptr,ROW,COL,0);
+
+	cuda_sumMatrix << <size, TPB_X_TPB >> > (d_cuda_defcan_vars_array_ptr, d_cuda_defcan_vars_ptr, ROW, COL,1);
+	cuda_sumMatrix << <size, TPB_X_TPB >> > (d_cuda_defcan_vars_array_ptr, d_cuda_defcan_vars_ptr, ROW, COL,2);
+
+	//cudaMemcpy(&data, d_cuda_defcan_vars_ptr, 3*sizeof(double), cudaMemcpyDeviceToHost);
+
+
+
 	cuda_defcan2 << <numBlock, numThread >> > ();
+	gpuStop()
+
 	cuda_roberts8 << <numBlock, numThread >> > ();
+	gpuStop()
+
 	cudaMemcpy(g_can, d_g_can1_ptr, ROW*COL * sizeof(double), cudaMemcpyDeviceToHost);
+	gpuStop()
+
 	cudaMemcpy(g_ang, d_g_ang1_ptr, ROW*COL * sizeof(int), cudaMemcpyDeviceToHost);
+	gpuStop()
+
 	cudaMemcpy(g_nor, d_g_nor1_ptr, ROW*COL * sizeof(double), cudaMemcpyDeviceToHost);
 	gpuStop()
 

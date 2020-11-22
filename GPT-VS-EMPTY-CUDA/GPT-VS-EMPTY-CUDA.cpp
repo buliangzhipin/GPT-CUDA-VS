@@ -56,6 +56,8 @@ int main()
 	sprintf(fileName, "%s/%s.pgm", IMGDIR, RgIMAGE);
 	load_image_file(fileName, image1, COL, ROW);
 
+	cout << (int)image1[ROW*COL - 1];
+
 	int *g_ang2 = new int[ROW*COL];	  // direction of gradients
 	char *sHoG2 = new char[(ROW - 4)*(COL - 4)];
 	double *g_nor2 = new double[ROW*COL]; // norm of gradients
@@ -160,9 +162,9 @@ int main()
 
 			/* update correlation */
 			new_cor1 = 0.0;
-			//for (int y = margine; y < ROW - margine; y++)
-			//	for (int x = margine; x < COL - margine; x++)
-			//		new_cor1 += g_can1[y*COL+x] * g_can2[y*COL+x];
+			for (int y = margine; y < ROW - margine; y++)
+				for (int x = margine; x < COL - margine; x++)
+					new_cor1 += g_can1[y*COL+x] * g_can2[y*COL+x];
 		
 			dnn = WNNDEsHoGD * sHoGpatInte(sHoG1, inteAng);
 			printf("iter = %d, new col. = %f dnn = %f  var = %f (d2 = %f) \n", iter, new_cor1, dnn, 1 / var, d2);

@@ -27,6 +27,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort =
 
 #pragma region DeviceMemory
 __device__ double d_cuda_defcan_vars[3];
+__device__ double d_cuda_defcan_vars_array[3 * ROW * COL];
 __device__ unsigned char d_image1[ROW][COL];
 __device__ unsigned char d_image2[ROW2][COL2];
 
@@ -44,4 +45,5 @@ __device__ int d_g_ang1[ROW][COL];
 #define G_NUM 30
 
 #pragma endregion Parameter
+int iDivUp(int hostPtr, int b);
 

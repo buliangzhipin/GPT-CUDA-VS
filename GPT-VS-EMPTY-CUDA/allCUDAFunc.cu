@@ -3,13 +3,20 @@
 #include "stdInte.cuh"
 
 
-#pragma region DeviceMemoryPointer
-void *d_cuda_defcan_vars_ptr;
+#pragma region CommonDeviceMemory
+__device__ unsigned char d_image1[ROW][COL];
+__device__ unsigned char d_image2[ROW2][COL2];
+__device__ double d_g_can1[ROW][COL], d_g_nor1[ROW][COL], d_gpt[3][3];
+__device__ int d_g_ang1[ROW][COL], d_sHoG[ROW - 4][COL - 4];
+__device__ int d_inteAng[64][ROWINTE][COLINTE];
+
 void *d_image1_ptr,*d_image2_ptr;
 void *d_g_can1_ptr, *d_g_ang1_ptr, *d_g_nor1_ptr,*d_gpt_ptr;
-#pragma endregion DeviceMemoryPointer
+void *d_inteAng_ptr;
+void *d_sHoG_ptr;
+#pragma endregion CommonDeviceMemory
 
-int iDivUp(int hostPtr, int b) { return ((hostPtr % b) != 0) ? (hostPtr / b + 1) : (hostPtr / b); };
+int iDivUp(int hostPtr, int b) { return ((hostPtr + b -1) / b); };
 dim3 numBlock;
 dim3 numThread;
 
@@ -22,12 +29,42 @@ void setGPUSize(int blockX, int blockY, int threadX, int threadY)
 	numThread.y = threadY;
 }
 
+//template<typename T>
+//__device__ void customAdd(T* sdata, T* g_odata) {
+//	int tx = threadIdx.x;
+//	int ty = threadIdx.y;
+//	int tid = ty * blockDim.x + tx;
+//	// do reduction in shared mem
+//	if (tid < 512) { sdata[tid] += sdata[tid + 512]; } __syncthreads();
+//	if (tid < 256) { sdata[tid] += sdata[tid + 256]; } __syncthreads();
+//	if (tid < 128) { sdata[tid] += sdata[tid + 128]; } __syncthreads();
+//	if (tid < 64) { sdata[tid] += sdata[tid + 64]; } __syncthreads();
+//	if (tid < 32) { sdata[tid] += sdata[tid + 32]; }__syncthreads();
+//	if (tid < 16) { sdata[tid] += sdata[tid + 16]; }__syncthreads();
+//	if (tid < 8) { sdata[tid] += sdata[tid + 8]; }__syncthreads();
+//	if (tid < 4) { sdata[tid] += sdata[tid + 4]; }__syncthreads();
+//	if (tid < 2) { sdata[tid] += sdata[tid + 2]; }__syncthreads();
+//	if (tid < 1) { sdata[tid] += sdata[tid + 1]; }__syncthreads();
+//	// write result for this block to global mem
+//	if (tid == 0) { atomicAdd(g_odata, sdata[tid]); }
+//
+//}
+
 template<typename T>
-__device__ void customAdd(T* sdata, T* g_odata) {
-	int tx = threadIdx.x;
-	int ty = threadIdx.y;
-	int tid = ty * blockDim.x + tx;
-	// do reduction in shared mem
+__global__ void cuda_sumMatrix(T* martrix, T* out, int y_size, int x_size, int shift)
+{
+	int tid = threadIdx.x;
+	int location = blockIdx.x*blockDim.x + threadIdx.x;
+	int totalSize = x_size * y_size;
+
+	__shared__ double sdata[TPB_X_TPB];
+	if (location >= totalSize) {
+		sdata[tid] = 0;
+		return;
+	}
+
+	sdata[tid] = martrix[location + shift * totalSize];
+	__syncthreads();
 	if (tid < 512) { sdata[tid] += sdata[tid + 512]; } __syncthreads();
 	if (tid < 256) { sdata[tid] += sdata[tid + 256]; } __syncthreads();
 	if (tid < 128) { sdata[tid] += sdata[tid + 128]; } __syncthreads();
@@ -38,40 +75,31 @@ __device__ void customAdd(T* sdata, T* g_odata) {
 	if (tid < 4) { sdata[tid] += sdata[tid + 4]; }__syncthreads();
 	if (tid < 2) { sdata[tid] += sdata[tid + 2]; }__syncthreads();
 	if (tid < 1) { sdata[tid] += sdata[tid + 1]; }__syncthreads();
-	// write result for this block to global mem
-	if (tid == 0) { atomicAdd(g_odata, sdata[tid]); }
-
+	if (tid == 0) { atomicAdd(&out[shift], sdata[tid]); }
 }
 
 #pragma region ProcImage
 
+
+__device__ double d_cuda_defcan_vars[3];
+__device__ double d_cuda_defcan_vars_array[3 * ROW * COL];
+double *d_cuda_defcan_vars_ptr;
+double *d_cuda_defcan_vars_array_ptr;
+
 __global__ void cuda_defcan1() {
-	int tx = threadIdx.x;
-	int ty = threadIdx.y;
-	int tid = ty * blockDim.x + tx;
 	int x = blockIdx.x*blockDim.x + threadIdx.x;
 	int y = blockIdx.y*blockDim.y + threadIdx.y;
 	if ((y >= ROW) || (x >= COL)) {
 		return;
 	}
-
 	/* definite canonicalization */
-	int margine = CANMARGIN / 2;
-	int condition = ((x >= margine && y >= margine) &&
-		(x < COL - margine) && (y < ROW - margine) &&
-		d_image1[y][x] != WHITE);
+	int condition = (d_image1[y][x] != WHITE);
 
 	double this_pixel = condition * (double)d_image1[y][x];
-	__shared__ double sdata[3][TPB_X_TPB];
-	sdata[0][tid] = this_pixel;
-	sdata[1][tid] = this_pixel * this_pixel;
-	sdata[2][tid] = condition;
 
-	__syncthreads();
-
-	customAdd(sdata[0], d_cuda_defcan_vars);
-	customAdd(sdata[1], d_cuda_defcan_vars + 1);
-	customAdd(sdata[2], d_cuda_defcan_vars + 2);
+	d_cuda_defcan_vars_array[y*COL + x] = this_pixel;
+	d_cuda_defcan_vars_array[y*COL + x + ROW * COL] = this_pixel * this_pixel;
+	d_cuda_defcan_vars_array[y*COL + x + 2 * ROW * COL] = condition;
 }
 __global__ void cuda_defcan2() {
 	int x = blockIdx.x*blockDim.x + threadIdx.x;
@@ -156,7 +184,8 @@ void procImageInitial()
 	gpuErrchk(cudaGetSymbolAddress(&d_g_can1_ptr, d_g_can1));
 	gpuErrchk(cudaGetSymbolAddress(&d_g_nor1_ptr, d_g_nor1));
 	gpuErrchk(cudaGetSymbolAddress(&d_g_ang1_ptr, d_g_ang1));
-	gpuErrchk(cudaGetSymbolAddress(&d_cuda_defcan_vars_ptr, d_cuda_defcan_vars));
+	gpuErrchk(cudaGetSymbolAddress((void**)&d_cuda_defcan_vars_ptr, d_cuda_defcan_vars));
+	gpuErrchk(cudaGetSymbolAddress((void**)&d_cuda_defcan_vars_array_ptr, d_cuda_defcan_vars_array));
 	gpuStop()	
 }
 
@@ -169,6 +198,12 @@ void cuda_procImg(double* g_can, int* g_ang, double* g_nor, unsigned char* image
 	setGPUSize(COL,ROW,TPB,TPB);
 	cudaMemset(d_cuda_defcan_vars_ptr, 0, 3 * sizeof(double));
 	cuda_defcan1 << <numBlock, numThread >> > ();
+
+	int size = iDivUp(COL*ROW, TPB_X_TPB);
+	cuda_sumMatrix << <size, TPB_X_TPB >> > (d_cuda_defcan_vars_array_ptr, d_cuda_defcan_vars_ptr, ROW, COL, 0);
+	cuda_sumMatrix << <size, TPB_X_TPB >> > (d_cuda_defcan_vars_array_ptr, d_cuda_defcan_vars_ptr, ROW, COL, 1);
+	cuda_sumMatrix << <size, TPB_X_TPB >> > (d_cuda_defcan_vars_array_ptr, d_cuda_defcan_vars_ptr, ROW, COL, 2);
+
 	cuda_defcan2 << <numBlock, numThread >> > ();
 	cuda_roberts8 << <numBlock, numThread >> > ();
 	cudaMemcpy(g_can, d_g_can1_ptr, ROW*COL * sizeof(double), cudaMemcpyDeviceToHost);
@@ -263,30 +298,40 @@ void cuda_bilinear_normal_inverse_projection(double gpt[3][3], int x_size1, int 
 
 #pragma region SHoGPat
 
-void *d_inteAng_ptr;
-void *d_sHoG_ptr;
+
 
 __device__ int d_dnnL[] = DNNL;
-__device__ double d_dnn[1];
-void *d_dnn_ptr;
-__device__ int d_count[1];
-void *d_count_ptr;
+__device__ double d_dnn[4];
+__device__ double d_dnn_array[(ROW - 4)*(COL - 4)];
+double *d_dnn_ptr;
+double *d_dnn_array_ptr;
+
+__device__ int d_count[4];
+__device__ int d_count_array[(ROW - 4)*(COL - 4)];
+int *d_count_ptr;
+int *d_count_array_ptr;
 
 void sHoGpatInitial(int *inteAng)
 {
 	gpuErrchk(cudaGetSymbolAddress(&d_inteAng_ptr, d_inteAng));
 	gpuErrchk(cudaGetSymbolAddress(&d_sHoG_ptr, d_sHoG));
-	gpuErrchk(cudaGetSymbolAddress(&d_dnn_ptr, d_dnn));
-	gpuErrchk(cudaGetSymbolAddress(&d_count_ptr, d_count));
+
+	gpuErrchk(cudaGetSymbolAddress((void**)&d_dnn_ptr, d_dnn));
+	gpuErrchk(cudaGetSymbolAddress((void**)&d_dnn_array_ptr, d_dnn_array));
+
+	gpuErrchk(cudaGetSymbolAddress((void**)&d_count_ptr, d_count));
+	gpuErrchk(cudaGetSymbolAddress((void**)&d_count_array_ptr, d_count_array));
+
 	cudaMemcpy(d_inteAng_ptr, inteAng, ROWINTE*COLINTE * 64 * sizeof(int), cudaMemcpyHostToDevice);
+
+	double *test = new double[64 * ROWINTE*COLINTE];
+	cudaMemcpy(test, d_inteAng_ptr, ROWINTE*COLINTE * 64 * sizeof(int), cudaMemcpyDeviceToHost);
+
 	gpuStop()
 }
 
 __global__ void cuda_sHoGpatInte(int nDnnL)
 {
-	int tx = threadIdx.x;
-	int ty = threadIdx.y;
-	int tid = ty * blockDim.x + tx;
 	int x = blockIdx.x*blockDim.x + threadIdx.x;
 	int y = blockIdx.y*blockDim.y + threadIdx.y;
 
@@ -306,10 +351,10 @@ __global__ void cuda_sHoGpatInte(int nDnnL)
 		{
 			int pPos = maxWinP + d_dnnL[wN];
 			int mPos = MAXWINDOWSIZE - d_dnnL[wN];
-			double secInte = d_inteAng[y1 + pPos][x1 + pPos][ang1]
-				- d_inteAng[(y1 + pPos)][x1 + mPos][ang1]
-				- d_inteAng[(y1 + mPos)][x1 + pPos][ang1]
-				+ d_inteAng[(y1 + mPos)][x1 + mPos][ang1];
+			double secInte = d_inteAng[ang1][y1 + pPos][x1 + pPos]
+				- d_inteAng[ang1][(y1 + pPos)][x1 + mPos]
+				- d_inteAng[ang1][(y1 + mPos)][x1 + pPos]
+				+ d_inteAng[ang1][(y1 + mPos)][x1 + mPos];
 			if (secInte > 0)
 			{
 				count = 1;
@@ -318,17 +363,9 @@ __global__ void cuda_sHoGpatInte(int nDnnL)
 			}
 		}
 	}
-
-	__shared__ double sdataD[TPB_X_TPB];
-	__shared__ int sdataI[TPB_X_TPB];
-	sdataD[tid] = dnn;
-	sdataI[tid] = count;
-
-	__syncthreads();
-
-	customAdd(sdataD, d_dnn);
-	customAdd(sdataI, d_count);
-
+	int location = y * (COL - 4) + x;
+	d_dnn_array[location] = dnn;
+	d_count_array[location] = count;
 }
 
 
@@ -340,7 +377,7 @@ double sHoGpatInteGPU(int* sHoG1)
 	cudaMemcpy(d_sHoG_ptr, sHoG1, (ROW - 4)*(COL - 4) * sizeof(int), cudaMemcpyHostToDevice);
 
 	int dnnL[] = DNNL;
-	int nDnnL;
+	int nDnnL = NDNNL;
 	int count = 0;
 	double dnn = 0;
 
@@ -355,9 +392,15 @@ double sHoGpatInteGPU(int* sHoG1)
 
 	setGPUSize(COL, ROW, TPB, TPB);
 	cuda_sHoGpatInte << <numBlock, numThread >> > (nDnnL);
+
+	int size = iDivUp((COL-4)*(ROW-4), TPB_X_TPB);
+	cuda_sumMatrix << <size, TPB_X_TPB >> > (d_dnn_array_ptr, d_dnn_ptr, ROW-4, COL-4, 0);
+	cuda_sumMatrix << <size, TPB_X_TPB >> > (d_count_array_ptr, d_count_ptr, ROW-4, COL-4, 0);
+
+
 	cudaMemcpy(&count, d_count_ptr, sizeof(int), cudaMemcpyDeviceToHost);
 	cudaMemcpy(&dnn, d_dnn_ptr, sizeof(double), cudaMemcpyDeviceToHost);
-	gpuStop()
+
 	double ddnn;
 	if (count == 0)
 		ddnn = MAXWINDOWSIZE;

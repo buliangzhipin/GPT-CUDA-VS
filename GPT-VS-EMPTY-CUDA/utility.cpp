@@ -19,36 +19,6 @@ void multiplyVect3x3(double inMat[3][3], double inVect[3], double outVect[3])
 	}
 }
 
-void multiplyVect4x4(double inMat[4][4], double inVect[4], double outVect[4])
-{
-	int i, j;
-	double sum;
-	for (i = 0; i < 4; ++i)
-	{
-		sum = 0.0;
-		for (j = 0; j < 4; ++j)
-		{
-			sum += inMat[i][j] * inVect[j];
-		}
-		outVect[i] = sum;
-	}
-}
-
-void multiplyVect8x8(double inMat[8][8], double inVect[8], double outVect[8])
-{
-	int i, j;
-	double sum;
-	for (i = 0; i < 8; ++i)
-	{
-		sum = 0.0;
-		for (j = 0; j < 8; ++j)
-		{
-			sum += inMat[i][j] * inVect[j];
-		}
-		outVect[i] = sum;
-	}
-}
-
 void multiply3x3(double inMat1[3][3], double inMat2[3][3], double outMat[3][3])
 {
 	int i, j, k;
@@ -59,24 +29,6 @@ void multiply3x3(double inMat1[3][3], double inMat2[3][3], double outMat[3][3])
 		{
 			sum = 0.0;
 			for (k = 0; k < 3; ++k)
-			{
-				sum += inMat1[i][k] * inMat2[k][j];
-			}
-			outMat[i][j] = sum;
-		}
-	}
-}
-
-void multiply8x8(double inMat1[8][8], double inMat2[8][8], double outMat[8][8])
-{
-	int i, j, k;
-	double sum;
-	for (i = 0; i < 8; ++i)
-	{
-		for (j = 0; j < 8; ++j)
-		{
-			sum = 0.0;
-			for (k = 0; k < 8; ++k)
 			{
 				sum += inMat1[i][k] * inMat2[k][j];
 			}
@@ -107,83 +59,6 @@ void inverse3x3(double inMat[3][3], double outMat[3][3])
 	outMat[2][2] = (inMat[0][0] * inMat[1][1] - inMat[1][0] * inMat[0][1]) / det;
 }
 
-void inverse4x4(double inMat[4][4], double outMat[4][4])
-{
-	double inMemo[4][4];
-	double buf;
-	int i, j, k;
-	int n = 4;
-
-	for (i = 0; i < n; i++)
-	{
-		for (j = 0; j < n; j++)
-		{
-			outMat[i][j] = (i == j) ? 1.0 : 0.0;
-			inMemo[i][j] = inMat[i][j];
-		}
-	}
-
-	for (i = 0; i < n; i++)
-	{
-		buf = 1 / inMemo[i][i];
-		for (j = 0; j < n; j++)
-		{
-			inMemo[i][j] *= buf;
-			outMat[i][j] *= buf;
-		}
-		for (j = 0; j < n; j++)
-		{
-			if (i != j)
-			{
-				buf = inMemo[j][i];
-				for (k = 0; k < n; k++)
-				{
-					inMemo[j][k] -= inMemo[i][k] * buf;
-					outMat[j][k] -= outMat[i][k] * buf;
-				}
-			}
-		}
-	}
-}
-
-void inverse8x8(double inMat[8][8], double outMat[8][8])
-{
-	double inMemo[8][8];
-	double buf;
-	int i, j, k;
-	int n = 8;
-
-	for (i = 0; i < n; i++)
-	{
-		for (j = 0; j < n; j++)
-		{
-			outMat[i][j] = (i == j) ? 1.0 : 0.0;
-			inMemo[i][j] = inMat[i][j];
-		}
-	}
-
-	for (i = 0; i < n; i++)
-	{
-		buf = 1 / inMemo[i][i];
-		for (j = 0; j < n; j++)
-		{
-			inMemo[i][j] *= buf;
-			outMat[i][j] *= buf;
-		}
-		for (j = 0; j < n; j++)
-		{
-			if (i != j)
-			{
-				buf = inMemo[j][i];
-				for (k = 0; k < n; k++)
-				{
-					inMemo[j][k] -= inMemo[i][k] * buf;
-					outMat[j][k] -= outMat[i][k] * buf;
-				}
-			}
-		}
-	}
-}
 
 void load_image_file(char *filename, unsigned char* image1, int x_size1, int y_size1)
 {
@@ -229,14 +104,13 @@ void load_image_file(char *filename, unsigned char* image1, int x_size1, int y_s
 			sscanf(buffer, "%d", &max_gray);
 		}
 	}
-	//????
-	//if (x_size1 > ROW2 || y_size1 > COL2)
-	//{
-	//	printf("     Image size exceeds %d x %d\n\n",
-	//		ROW2, COL2);
-	//	printf("     Please use smaller images!\n\n");
-	//	exit(1);
-	//}
+	if (x_size1 > ROW2 || y_size1 > COL2)
+	{
+		printf("     Image size exceeds %d x %d\n\n",
+			ROW2, COL2);
+		printf("     Please use smaller images!\n\n");
+		exit(1);
+	}
 	if (max_gray != MAX_BRIGHTNESS)
 	{
 		printf("     Invalid value of maximum gray level!\n\n");

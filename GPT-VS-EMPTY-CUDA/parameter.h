@@ -2,9 +2,11 @@
 
 #define isGPU 1
 
-
+/* --------------ImageMeta parameters-------------- */
 #define DATATYPE 2
 #define IMGDIR "."
+/* --------------ImageMeta parameters-------------- */
+
 #define MAXITER 100 // Maximum iteration times
 #define MAXNR 5     // Maximum Newton-Raphson iterations
 
@@ -33,12 +35,15 @@
 #define FALSE 0
 /* --------------Fixed parameters-------------- */
 
+/* --------------sHoGInte parameters-------------- */
 #define MAXWINDOWSIZE 16
 #define ROWINTE (ROW + 2 * MAXWINDOWSIZE + 1)
 #define COLINTE (COL + 2 * MAXWINDOWSIZE + 1)
 #define DNNL {0, 1, 2, 3, 4, 6, 8, 11, 16, 23, 32, 45, 64, 91, 128, 181, 256, 362, 512};
 #define NDNNL 19
 #define WGS 1.5 /* Gauss型窓関数を1つの矩形で表すための幅の比 */
+/* --------------sHoGInte parameters-------------- */
+
 
 
 /* initial conditions */
@@ -48,6 +53,10 @@
 #define ROT 0.0    /* Rotation angle for initial matrix */
 #define B1 0.0     /*  */
 #define B2 0.0     /*  */
+/* initial conditions */
+
+
+
 
 #if DATATYPE == 2 /* 20 300 2.0 */
 #define COL 170   /* Horizontal size of image  */

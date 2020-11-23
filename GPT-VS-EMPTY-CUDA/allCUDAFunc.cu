@@ -435,7 +435,7 @@ __global__ void cuda_sHoGpatInte(int nDnnL)
 
 
 
-double sHoGpatInteGPU(int* sHoG1)
+double sHoGpatInteGPU()
 {
 	cudaMemset(d_count_ptr, 0, sizeof(int));
 	cudaMemset(d_dnn_ptr, 0, sizeof(double));
@@ -481,7 +481,7 @@ __device__ double d_matrixSum[32];
 void *d_matrixSum_ptr;
 double *matrixSum;
 
-void sHoGcoreInitial(double *inteCanDir, double *inteDx2Dir, double *inteDy2Dir)
+void gptcorsHoGInteInitial(double *inteCanDir, double *inteDx2Dir, double *inteDy2Dir)
 {
 	matrixSum = new double[27];
 	gpuErrchk(cudaGetSymbolAddress(&d_matrixSum_ptr, d_matrixSum));

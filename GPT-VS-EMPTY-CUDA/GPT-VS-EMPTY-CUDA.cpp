@@ -74,7 +74,7 @@ int main()
 #pragma endregion Calculate_Inte
 
 	sHoGpatInitial(inteAng);
-	sHoGcoreInitial(inteCanDir, inteDx2Dir, inteDy2Dir);
+	gptcorsHoGInteInitial(inteCanDir, inteDx2Dir, inteDy2Dir);
 
 
 	cout << "process1 finished" << endl;
@@ -140,7 +140,7 @@ int main()
 		for (int iter = 0; iter < MAXITER; iter++)
 		{
 			//Match
-			gptcorsHoGInte(sHoG1, g_can1, sHoG2, g_can2, gwt, inteCanDir, inteDx2Dir, inteDy2Dir, dnn, gpt1);
+			gptcorsHoGInte(sHoG1, g_can1, inteCanDir, inteDx2Dir, inteDy2Dir, dnn, gpt1);
 			bilinear_normal_projection(gpt1, COL, ROW, COL2, ROW2, image1, image2,0);
 			procImg(g_can1, g_ang1, g_nor1, sHoG1, image2,0);
 			dnn = WNNDEsHoGD * sHoGpatInte(sHoG1, inteAng);

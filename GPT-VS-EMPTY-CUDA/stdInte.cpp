@@ -4,6 +4,21 @@
 #include "utility.h"
 #include <stdio.h>
 
+#pragma region UtilityForsHoGCor
+
+void initGpt(double gpt[3][3])
+{
+	gpt[0][0] = 1.0;
+	gpt[0][1] = 0.0;
+	gpt[1][0] = 0.0;
+	gpt[1][1] = 1.0;
+	gpt[0][2] = 0.0;
+	gpt[1][2] = 0.0;
+	gpt[2][0] = 0.0;
+	gpt[2][1] = 0.0;
+	gpt[2][2] = 1.0;
+}
+
 void copyNormalGpt(double inGpt[3][3], double outGpt[3][3])
 {
 	int i, j;
@@ -75,19 +90,7 @@ void solveLEq(double inMat[NI][NI + 1])
 	}
 }
 
-//int sHoG2Idx(char sHoG)
-//{
-//	int tempValue = sHoG;
-//	int quot, remd;
-//	if (tempValue == -1)
-//		return -1;
-//	if (tempValue < 10)
-//		return tempValue;
-//
-//	quot = tempValue / 10;
-//	remd = tempValue % 10;
-//	return (quot*8 + remd);
-//}
+#pragma endregion UtilityForsHoGCor
 
 void calInte64(double* g_can, int* sHOG, int* inteAng,
 	double* inteCanDir, double* inteDx2Dir, double* inteDy2Dir)
@@ -177,6 +180,8 @@ void calInte64(double* g_can, int* sHOG, int* inteAng,
 	}
 }
 
+#pragma region CalculateDNN
+
 double sHoGpatInteCPU(int* sHoG1, int* inteAng)
 {
 	int x1, y1, wN, ang1, dnn = 0, count = 0;
@@ -237,12 +242,16 @@ double sHoGpatInte(int* sHoG1, int* inteAng)
 	}
 	else
 	{
-		return sHoGpatInteGPU(sHoG1);
+		return sHoGpatInteGPU();
 	}
 }
 
-void gptcorsHoGInte(int* sHoG1, double* g_can1,
-	int* sHoG2, double* g_can2, double* gwt, double* inteCanDir,
+#pragma endregion CalculateDNN
+
+
+#pragma region sHoGCor
+
+void gptcorsHoGInte(int* sHoG1, double* g_can1, double* inteCanDir,
 	double* inteDx2Dir, double* inteDy2Dir, double dnn, double gpt[3][3])
 {
 	/* determination of optimal GAT components */
@@ -265,27 +274,12 @@ void gptcorsHoGInte(int* sHoG1, double* g_can1,
 	double var = WGT * WGT * dnn * dnn;
 
 	int ang1;
-#ifdef TWOWINDOW
-	int windowSSS = (int)(WGSS * WGT * dnn + 0.9999);
-	int windowSSL = (int)(WGSL * WGT * dnn + 0.9999);
-	int pPosS, mPosS, pPosL, mPosL;
-	if (windowSSL > MAXWINDOWSIZE)
-	{
-		windowSSS = MAXWINDOWSIZE / 2;
-		windowSSL = MAXWINDOWSIZE;
-	}
-	pPosS = MAXWINDOWSIZE + 1 + windowSSS;
-	mPosS = MAXWINDOWSIZE - windowSSS;
-	pPosL = MAXWINDOWSIZE + 1 + windowSSL;
-	mPosL = MAXWINDOWSIZE - windowSSL;
-#else
 	int windowS = (int)(WGS * WGT * dnn + 0.9999);
 	int pPos, mPos;
 	if (windowS > MAXWINDOWSIZE)
 		windowS = MAXWINDOWSIZE;
 	pPos = MAXWINDOWSIZE + 1 + windowS;
 	mPos = MAXWINDOWSIZE - windowS;
-#endif
 
 	/* Gaussian weigthed mean values */
 	g0 = gx1 = gy1 = gx2 = gy2 = 0.0;
@@ -309,19 +303,10 @@ void gptcorsHoGInte(int* sHoG1, double* g_can1,
 				if (ang1 == -1)
 					continue;
 				// printf("ang1 = %d\n", ang1);
-	#ifdef TWOWINDOW
-				t0 = tx2 = ty2 = COEFGS;
-				t0 *= inteCanDir[y1 + pPosL][x1 + pPosL][ang1] - inteCanDir[y1 + pPosL][x1 + mPosL][ang1] - inteCanDir[y1 + mPosL][x1 + pPosL][ang1] + inteCanDir[y1 + mPosL][x1 + mPosL][ang1];
-				tx2 *= inteDx2Dir[y1 + pPosL][x1 + pPosL][ang1] - inteDx2Dir[y1 + pPosL][x1 + mPosL][ang1] - inteDx2Dir[y1 + mPosL][x1 + pPosL][ang1] + inteDx2Dir[y1 + mPosL][x1 + mPosL][ang1];
-				ty2 *= inteDy2Dir[y1 + pPosL][x1 + pPosL][ang1] - inteDy2Dir[y1 + pPosL][x1 + mPosL][ang1] - inteDy2Dir[y1 + mPosL][x1 + pPosL][ang1] + inteDy2Dir[y1 + mPosL][x1 + mPosL][ang1];
-				t0 += inteCanDir[y1 + pPosS][x1 + pPosS][ang1] - inteCanDir[y1 + pPosS][x1 + mPosS][ang1] - inteCanDir[y1 + mPosS][x1 + pPosS][ang1] + inteCanDir[y1 + mPosS][x1 + mPosS][ang1];
-				tx2 += inteDx2Dir[y1 + pPosS][x1 + pPosS][ang1] - inteDx2Dir[y1 + pPosS][x1 + mPosS][ang1] - inteDx2Dir[y1 + mPosS][x1 + pPosS][ang1] + inteDx2Dir[y1 + mPosS][x1 + mPosS][ang1];
-				ty2 += inteDy2Dir[y1 + pPosS][x1 + pPosS][ang1] - inteDy2Dir[y1 + pPosS][x1 + mPosS][ang1] - inteDy2Dir[y1 + mPosS][x1 + pPosS][ang1] + inteDy2Dir[y1 + mPosS][x1 + mPosS][ang1];
-	#else
 				t0 = inteCanDir[(y1 + pPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] - inteCanDir[(y1 + pPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE] - inteCanDir[(y1 + mPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] + inteCanDir[(y1 + mPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE];
 				tx2 = inteDx2Dir[(y1 + pPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] - inteDx2Dir[(y1 + pPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE] - inteDx2Dir[(y1 + mPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] + inteDx2Dir[(y1 + mPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE];
 				ty2 = inteDy2Dir[(y1 + pPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] - inteDy2Dir[(y1 + pPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE] - inteDy2Dir[(y1 + mPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] + inteDy2Dir[(y1 + mPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE];
-	#endif
+
 				t0 *= g_can1[y1*COL + x1];
 				tx2 *= g_can1[y1*COL + x1];
 				ty2 *= g_can1[y1*COL + x1];
@@ -563,17 +548,4 @@ void gptcorsHoGInte(int* sHoG1, double* g_can1,
 	copyNormalGpt(tGpt2, gpt);
 }
 
-
-
-void initGpt(double gpt[3][3])
-{
-	gpt[0][0] = 1.0;
-	gpt[0][1] = 0.0;
-	gpt[1][0] = 0.0;
-	gpt[1][1] = 1.0;
-	gpt[0][2] = 0.0;
-	gpt[1][2] = 0.0;
-	gpt[2][0] = 0.0;
-	gpt[2][1] = 0.0;
-	gpt[2][2] = 1.0;
-}
+#pragma endregion sHoGCor

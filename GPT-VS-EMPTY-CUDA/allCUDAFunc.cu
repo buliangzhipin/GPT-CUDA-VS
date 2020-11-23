@@ -90,9 +90,12 @@ double *d_cuda_defcan_vars_ptr;
 double *d_cuda_defcan_vars_array_ptr;
 
 __global__ void cuda_defcan1() {
+	int tid = threadIdx.y * blockDim.x + threadIdx.x;
 	int x = blockIdx.x*blockDim.x + threadIdx.x;
 	int y = blockIdx.y*blockDim.y + threadIdx.y;
+	__shared__ double sdata[TPB_X_TPB];
 	if ((y >= ROW) || (x >= COL)) {
+		sdata[tid] = 0;
 		return;
 	}
 	/* definite canonicalization */
@@ -100,9 +103,20 @@ __global__ void cuda_defcan1() {
 
 	double this_pixel = condition * (double)d_image1[y][x];
 
-	d_cuda_defcan_vars_array[y*COL + x] = this_pixel;
-	d_cuda_defcan_vars_array[y*COL + x + ROW * COL] = this_pixel * this_pixel;
-	d_cuda_defcan_vars_array[y*COL + x + 2 * ROW * COL] = condition;
+	sdata[tid] = this_pixel;
+	__syncthreads();
+	customAdd(sdata, d_cuda_defcan_vars);
+
+	sdata[tid] = this_pixel * this_pixel;
+	__syncthreads();
+	customAdd(sdata, d_cuda_defcan_vars+1);
+
+	sdata[tid] = condition;
+	__syncthreads();
+	customAdd(sdata, d_cuda_defcan_vars + 2);
+	//d_cuda_defcan_vars_array[y*COL + x] = this_pixel;
+	//d_cuda_defcan_vars_array[y*COL + x + ROW * COL] = this_pixel * this_pixel;
+	//d_cuda_defcan_vars_array[y*COL + x + 2 * ROW * COL] = condition;
 }
 __global__ void cuda_defcan2() {
 	int x = blockIdx.x*blockDim.x + threadIdx.x;

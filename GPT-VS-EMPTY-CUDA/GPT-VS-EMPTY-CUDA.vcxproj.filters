@@ -44,5 +44,19 @@
     <ClInclude Include="stdInte.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="cudaInclude.cuh">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="init_cuda.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="stdInte.cuh">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="allCUDAFunc.cu">
+      <Filter>源文件</Filter>
+    </CudaCompile>
   </ItemGroup>
 </Project>

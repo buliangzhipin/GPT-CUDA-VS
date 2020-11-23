@@ -1,4 +1,5 @@
 #include "stdInte.h"
+#include "stdInte.cuh"
 #include "math.h"
 #include "utility.h"
 #include <stdio.h>
@@ -74,34 +75,53 @@ void solveLEq(double inMat[NI][NI + 1])
 	}
 }
 
-void calInte(double* g_can, int* g_ang, int* inteAng,
+//int sHoG2Idx(char sHoG)
+//{
+//	int tempValue = sHoG;
+//	int quot, remd;
+//	if (tempValue == -1)
+//		return -1;
+//	if (tempValue < 10)
+//		return tempValue;
+//
+//	quot = tempValue / 10;
+//	remd = tempValue % 10;
+//	return (quot*8 + remd);
+//}
+
+void calInte64(double* g_can, int* sHOG, int* inteAng,
 	double* inteCanDir, double* inteDx2Dir, double* inteDy2Dir)
 {
-	int angInte[9];
+	int x, y, d, xInte, yInte, angInte[64];
 	int maxWinP = MAXWINDOWSIZE + 1;
-	double canDirInte[9], dx2DirInte[9], dy2DirInte[9];
+	double canDirInte[64], dx2DirInte[64], dy2DirInte[64];
 
 	/* Set init data */
-	for (int y = 0; y < ROWINTE; ++y)
+	for (y = 0; y < ROWINTE; ++y)
 	{
-		for (int x = 0; x < COLINTE; ++x)
+		for (x = 0; x < COLINTE; ++x)
 		{
-			for (int d = 0; d < 9; ++d)
+			for (d = 0; d < 64; ++d)
 			{
-				inteAng[y*COLINTE + x + d * ROWINTE*COLINTE] = 0;
-				inteCanDir[y*COLINTE + x + d * ROWINTE*COLINTE] = 0.0;
-				inteDx2Dir[y*COLINTE + x + d * ROWINTE*COLINTE] = 0.0;
-				inteDy2Dir[y*COLINTE + x + d * ROWINTE*COLINTE] = 0.0;
+				int location = y * COLINTE + x + d * ROWINTE*COLINTE;
+				inteAng[location] = 0;
+				inteCanDir[location] = 0.0;
+				inteDx2Dir[location] = 0.0;
+				inteDy2Dir[location] = 0.0;
 			}
 		}
 	}
-	for (int y = 0; y < ROW; ++y)
+
+	for (y = 2; y < ROW - 2; ++y)
 	{
-		for (int x = 0; x < COL; ++x)
+		for (x = 2; x < COL - 2; ++x)
 		{
-			int d = g_ang[y*COL + x];
-			int xInte = x + maxWinP;
-			int yInte = y + maxWinP;
+			if (sHOG[(y - 2)*(COL-4)+x - 2] == -1)
+				continue;
+			else
+				d = sHOG[(y - 2)*(COL-4)+x - 2];
+			xInte = x + maxWinP;
+			yInte = y + maxWinP;
 			int location = yInte * COLINTE + xInte + d * ROWINTE*COLINTE;
 			inteAng[location] = 1;
 			inteCanDir[location] = g_can[y*COL + x];
@@ -111,18 +131,18 @@ void calInte(double* g_can, int* g_ang, int* inteAng,
 	}
 
 	/* Calculate Integral for x direction */
-	for (int yInte = maxWinP; yInte < ROW + maxWinP; ++yInte)
+	for (yInte = maxWinP; yInte < ROW + maxWinP; ++yInte)
 	{
-		for (int d = 0; d < 9; ++d)
+		for (d = 0; d < 64; ++d)
 		{
 			angInte[d] = 0;
 			canDirInte[d] = 0.0;
 			dx2DirInte[d] = 0.0;
 			dy2DirInte[d] = 0.0;
 		}
-		for (int xInte = maxWinP; xInte < COLINTE; ++xInte)
+		for (xInte = maxWinP; xInte < COLINTE; ++xInte)
 		{
-			for (int d = 0; d < 9; ++d)
+			for (d = 0; d < 64; ++d)
 			{
 				int location = yInte * COLINTE + xInte + d * ROWINTE*COLINTE;
 				angInte[d] = inteAng[location] = inteAng[location] + angInte[d];
@@ -134,18 +154,18 @@ void calInte(double* g_can, int* g_ang, int* inteAng,
 	}
 
 	/* Calculate Integral for y direction */
-	for (int xInte = maxWinP; xInte < COLINTE; ++xInte)
+	for (xInte = maxWinP; xInte < COLINTE; ++xInte)
 	{ /* 後側余裕も積分した後で0ではないので，COLINTE */
-		for (int d = 0; d < 9; ++d)
+		for (d = 0; d < 64; ++d)
 		{
 			angInte[d] = 0;
 			canDirInte[d] = 0.0;
 			dx2DirInte[d] = 0.0;
 			dy2DirInte[d] = 0.0;
 		}
-		for (int yInte = maxWinP; yInte < ROWINTE; ++yInte)
+		for (yInte = maxWinP; yInte < ROWINTE; ++yInte)
 		{
-			for (int d = 0; d < 9; ++d)
+			for (d = 0; d < 64; ++d)
 			{
 				int location = yInte * COLINTE + xInte + d * ROWINTE*COLINTE;
 				angInte[d] = inteAng[location] = inteAng[location] + angInte[d];
@@ -157,7 +177,7 @@ void calInte(double* g_can, int* g_ang, int* inteAng,
 	}
 }
 
-double winpatInte(int* g_ang1, int* inteAng)
+double sHoGpatInteCPU(int* sHoG1, int* inteAng)
 {
 	int x1, y1, wN, ang1, dnn = 0, count = 0;
 	int maxWinP = MAXWINDOWSIZE + 1;
@@ -174,21 +194,22 @@ double winpatInte(int* g_ang1, int* inteAng)
 		}
 	}
 
-	for (y1 = MARGINE; y1 < ROW - MARGINE; ++y1)
+	for (y1 = MARGINE + 2; y1 < ROW - MARGINE - 2; ++y1)
 	{
-		for (x1 = MARGINE; x1 < COL - MARGINE; ++x1)
+		for (x1 = MARGINE + 2; x1 < COL - MARGINE - 2; ++x1)
 		{
-			ang1 = g_ang1[y1*COL + x1];
-			//if ((ang1 = g_ang1[y1*COL + x1]) != 8)
-			//{
+;
+			if ((ang1 = sHoG1[(y1-2)*(COL - 4) + x1-2]) != -1)
+			{
 				for (wN = 0; wN < nDnnL; ++wN)
 				{
 					pPos = maxWinP + dnnL[wN];
 					mPos = MAXWINDOWSIZE - dnnL[wN];
 					sectInte = inteAng[(y1 + pPos)*COLINTE + x1 + pPos + ang1 * ROWINTE*COLINTE]
-						- inteAng[(y1 + pPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE] 
-						- inteAng[(y1 + mPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] 
+						- inteAng[(y1 + pPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE]
+						- inteAng[(y1 + mPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE]
 						+ inteAng[(y1 + mPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE];
+
 					if (sectInte > 0)
 					{
 						//						printf("(%d, %d) sectInte = %d dnn = %d \n", x1, y1, sectInte, dnnL[wN]);
@@ -197,10 +218,10 @@ double winpatInte(int* g_ang1, int* inteAng)
 						break;
 					}
 				}
-			//}
+			}
 		}
 	}
-	printf("count = %d dnn = %d \n", count, dnn);
+	//printf("count = %d dnn = %d \n", count, dnn);
 	if (count == 0)
 		ddnn = MAXWINDOWSIZE;
 	else
@@ -208,8 +229,20 @@ double winpatInte(int* g_ang1, int* inteAng)
 	return ddnn;
 }
 
-void gptcorInte(int* g_ang1, double* g_can1,
-	int* g_ang2, double* g_can2, double* gwt, double* inteCanDir,
+double sHoGpatInte(int* sHoG1, int* inteAng)
+{
+	if (isGPU == 0)
+	{
+		return sHoGpatInteCPU(sHoG1, inteAng);
+	}
+	else
+	{
+		return sHoGpatInteGPU(sHoG1);
+	}
+}
+
+void gptcorsHoGInte(int* sHoG1, double* g_can1,
+	int* sHoG2, double* g_can2, double* gwt, double* inteCanDir,
 	double* inteDx2Dir, double* inteDy2Dir, double dnn, double gpt[3][3])
 {
 	/* determination of optimal GAT components */
@@ -262,60 +295,100 @@ void gptcorInte(int* g_ang1, double* g_can1,
 	gx1x1x2 = gx1x1y2 = gx1y1x2 = gx1y1y2 = gy1y1x2 = gy1y1y2 = 0.0;
 	gx1x1x1x1 = gx1x1x1y1 = gx1x1y1y1 = gx1y1y1y1 = gy1y1y1y1 = 0.0;
 
-	for (y1 = MARGINE; y1 < ROW - MARGINE; y1++)
-	{
-		dy1 = y1 - CY;
-		for (x1 = MARGINE; x1 < COL - MARGINE; x1++)
+	if(isGPU == 0)
+	{ 
+
+		for (y1 = MARGINE + 2; y1 < ROW - MARGINE - 2; y1++)
 		{
-			dx1 = x1 - CX;
+			dy1 = y1 - CY;
+			for (x1 = MARGINE + 2; x1 < COL - MARGINE - 2; x1++)
+			{
+				dx1 = x1 - CX;
 
-			ang1 = g_ang1[y1*COL + x1];
-#ifdef TWOWINDOW
-			t0 = tx2 = ty2 = COEFGS;
-			t0 *= inteCanDir[y1 + pPosL][x1 + pPosL][ang1] - inteCanDir[y1 + pPosL][x1 + mPosL][ang1] - inteCanDir[y1 + mPosL][x1 + pPosL][ang1] + inteCanDir[y1 + mPosL][x1 + mPosL][ang1];
-			tx2 *= inteDx2Dir[y1 + pPosL][x1 + pPosL][ang1] - inteDx2Dir[y1 + pPosL][x1 + mPosL][ang1] - inteDx2Dir[y1 + mPosL][x1 + pPosL][ang1] + inteDx2Dir[y1 + mPosL][x1 + mPosL][ang1];
-			ty2 *= inteDy2Dir[y1 + pPosL][x1 + pPosL][ang1] - inteDy2Dir[y1 + pPosL][x1 + mPosL][ang1] - inteDy2Dir[y1 + mPosL][x1 + pPosL][ang1] + inteDy2Dir[y1 + mPosL][x1 + mPosL][ang1];
-			t0 += inteCanDir[y1 + pPosS][x1 + pPosS][ang1] - inteCanDir[y1 + pPosS][x1 + mPosS][ang1] - inteCanDir[y1 + mPosS][x1 + pPosS][ang1] + inteCanDir[y1 + mPosS][x1 + mPosS][ang1];
-			tx2 += inteDx2Dir[y1 + pPosS][x1 + pPosS][ang1] - inteDx2Dir[y1 + pPosS][x1 + mPosS][ang1] - inteDx2Dir[y1 + mPosS][x1 + pPosS][ang1] + inteDx2Dir[y1 + mPosS][x1 + mPosS][ang1];
-			ty2 += inteDy2Dir[y1 + pPosS][x1 + pPosS][ang1] - inteDy2Dir[y1 + pPosS][x1 + mPosS][ang1] - inteDy2Dir[y1 + mPosS][x1 + pPosS][ang1] + inteDy2Dir[y1 + mPosS][x1 + mPosS][ang1];
-#else
-			t0 = inteCanDir[(y1 + pPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] - inteCanDir[(y1 + pPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE] - inteCanDir[(y1 + mPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] + inteCanDir[(y1 + mPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE];
-			tx2 = inteDx2Dir[(y1 + pPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] - inteDx2Dir[(y1 + pPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE] - inteDx2Dir[(y1 + mPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] + inteDx2Dir[(y1 + mPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE];
-			ty2 = inteDy2Dir[(y1 + pPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] - inteDy2Dir[(y1 + pPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE] - inteDy2Dir[(y1 + mPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] + inteDy2Dir[(y1 + mPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE];
-#endif
-			t0 *= g_can1[y1*COL + x1];
-			tx2 *= g_can1[y1*COL + x1];
-			ty2 *= g_can1[y1*COL + x1];
+				ang1 = sHoG1[(y1 - 2)*(COL - 4) + x1 - 2];
+				if (ang1 == -1)
+					continue;
+				// printf("ang1 = %d\n", ang1);
+	#ifdef TWOWINDOW
+				t0 = tx2 = ty2 = COEFGS;
+				t0 *= inteCanDir[y1 + pPosL][x1 + pPosL][ang1] - inteCanDir[y1 + pPosL][x1 + mPosL][ang1] - inteCanDir[y1 + mPosL][x1 + pPosL][ang1] + inteCanDir[y1 + mPosL][x1 + mPosL][ang1];
+				tx2 *= inteDx2Dir[y1 + pPosL][x1 + pPosL][ang1] - inteDx2Dir[y1 + pPosL][x1 + mPosL][ang1] - inteDx2Dir[y1 + mPosL][x1 + pPosL][ang1] + inteDx2Dir[y1 + mPosL][x1 + mPosL][ang1];
+				ty2 *= inteDy2Dir[y1 + pPosL][x1 + pPosL][ang1] - inteDy2Dir[y1 + pPosL][x1 + mPosL][ang1] - inteDy2Dir[y1 + mPosL][x1 + pPosL][ang1] + inteDy2Dir[y1 + mPosL][x1 + mPosL][ang1];
+				t0 += inteCanDir[y1 + pPosS][x1 + pPosS][ang1] - inteCanDir[y1 + pPosS][x1 + mPosS][ang1] - inteCanDir[y1 + mPosS][x1 + pPosS][ang1] + inteCanDir[y1 + mPosS][x1 + mPosS][ang1];
+				tx2 += inteDx2Dir[y1 + pPosS][x1 + pPosS][ang1] - inteDx2Dir[y1 + pPosS][x1 + mPosS][ang1] - inteDx2Dir[y1 + mPosS][x1 + pPosS][ang1] + inteDx2Dir[y1 + mPosS][x1 + mPosS][ang1];
+				ty2 += inteDy2Dir[y1 + pPosS][x1 + pPosS][ang1] - inteDy2Dir[y1 + pPosS][x1 + mPosS][ang1] - inteDy2Dir[y1 + mPosS][x1 + pPosS][ang1] + inteDy2Dir[y1 + mPosS][x1 + mPosS][ang1];
+	#else
+				t0 = inteCanDir[(y1 + pPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] - inteCanDir[(y1 + pPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE] - inteCanDir[(y1 + mPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] + inteCanDir[(y1 + mPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE];
+				tx2 = inteDx2Dir[(y1 + pPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] - inteDx2Dir[(y1 + pPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE] - inteDx2Dir[(y1 + mPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] + inteDx2Dir[(y1 + mPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE];
+				ty2 = inteDy2Dir[(y1 + pPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] - inteDy2Dir[(y1 + pPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE] - inteDy2Dir[(y1 + mPos)*COLINTE + x1 + pPos + ang1 * COLINTE*ROWINTE] + inteDy2Dir[(y1 + mPos)*COLINTE + x1 + mPos + ang1 * COLINTE*ROWINTE];
+	#endif
+				t0 *= g_can1[y1*COL + x1];
+				tx2 *= g_can1[y1*COL + x1];
+				ty2 *= g_can1[y1*COL + x1];
 
-			g0 += t0;
-			gx1 += tx1 = t0 * dx1;
-			gy1 += ty1 = t0 * dy1;
-			gx1x1 += tx1x1 = tx1 * dx1;
-			gx1y1 += tx1y1 = tx1 * dy1;
-			gy1y1 += ty1y1 = ty1 * dy1;
-			gx1x1x1 += tx1x1x1 = tx1x1 * dx1;
-			gx1x1y1 += tx1x1y1 = tx1x1 * dy1;
-			gx1y1y1 += tx1y1y1 = tx1y1 * dy1;
-			gy1y1y1 += ty1y1y1 = ty1y1 * dy1;
-			gx1x1x1x1 += tx1x1x1 * dx1;
-			gx1x1x1y1 += tx1x1x1 * dy1;
-			gx1x1y1y1 += tx1x1y1 * dy1;
-			gx1y1y1y1 += tx1y1y1 * dy1;
-			gy1y1y1y1 += ty1y1y1 * dy1;
+				g0 += t0;
+				gx1 += tx1 = t0 * dx1;
+				gy1 += ty1 = t0 * dy1;
+				gx1x1 += tx1x1 = tx1 * dx1;
+				gx1y1 += tx1y1 = tx1 * dy1;
+				gy1y1 += ty1y1 = ty1 * dy1;
+				gx1x1x1 += tx1x1x1 = tx1x1 * dx1;
+				gx1x1y1 += tx1x1y1 = tx1x1 * dy1;
+				gx1y1y1 += tx1y1y1 = tx1y1 * dy1;
+				gy1y1y1 += ty1y1y1 = ty1y1 * dy1;
+				gx1x1x1x1 += tx1x1x1 * dx1;
+				gx1x1x1y1 += tx1x1x1 * dy1;
+				gx1x1y1y1 += tx1x1y1 * dy1;
+				gx1y1y1y1 += tx1y1y1 * dy1;
+				gy1y1y1y1 += ty1y1y1 * dy1;
 
-			gx2 += tx2;
-			gy2 += ty2;
-			gx1x2 += tx2 * dx1;
-			gx1y2 += ty2 * dx1;
-			gy1x2 += tx2 * dy1;
-			gy1y2 += ty2 * dy1;
-			gx1x1x2 += tx2 * dx1 * dx1;
-			gx1x1y2 += ty2 * dx1 * dx1;
-			gx1y1x2 += tx2 * dx1 * dy1;
-			gx1y1y2 += ty2 * dx1 * dy1;
-			gy1y1x2 += tx2 * dy1 * dy1;
-			gy1y1y2 += ty2 * dy1 * dy1;
+				gx2 += tx2;
+				gy2 += ty2;
+				gx1x2 += tx2 * dx1;
+				gx1y2 += ty2 * dx1;
+				gy1x2 += tx2 * dy1;
+				gy1y2 += ty2 * dy1;
+				gx1x1x2 += tx2 * dx1 * dx1;
+				gx1x1y2 += ty2 * dx1 * dx1;
+				gx1y1x2 += tx2 * dx1 * dy1;
+				gx1y1y2 += ty2 * dx1 * dy1;
+				gy1y1x2 += tx2 * dy1 * dy1;
+				gy1y1y2 += ty2 * dy1 * dy1;
+			}
 		}
+	}
+	else
+	{
+			double* matrix = gptcorsHoGInteGPU(dnn);
+			g0 = matrix[0];
+			gx1 = matrix[1];
+			gy1 = matrix[2];
+			gx1x1 = matrix[3];
+			gx1y1 = matrix[4];
+			gy1y1 = matrix[5];
+			gx1x1x1 = matrix[6];
+			gx1x1y1 = matrix[7];
+			gx1y1y1 = matrix[8];
+			gy1y1y1 = matrix[9];
+			gx1x1x1x1 = matrix[10];
+			gx1x1x1y1 = matrix[11];
+			gx1x1y1y1 = matrix[12];
+			gx1y1y1y1 = matrix[13];
+			gy1y1y1y1 = matrix[14];
+
+			gx2 = matrix[15];
+			gy2 = matrix[16];
+			gx1x2 = matrix[17];
+			gx1y2 = matrix[18];
+			gy1x2 = matrix[19];
+			gy1y2 = matrix[20];
+			gx1x1x2 = matrix[21];
+			gx1x1y2 = matrix[22];
+			gx1y1x2 = matrix[23];
+			gx1y1y2 = matrix[24];
+			gy1y1x2 = matrix[25];
+			gy1y1y2 = matrix[26];
+
 	}
 	// printf("dnn = %f g0 = %f gx1 = %f  gy1 = %f gx2 = %f  gy2 = %f\n", dnn, g0, gx1, gy1, gx2, gy2);
 	// printf("dnn = %f normal gx1x1x1x1 = %f gx1x1x1y1 = %f  gx1x1y1y1 = %f gx1y1y1y1 = %f  gy1y1y1y1y1 = %f\n", dnn, gx1x1x1x1/g0, gx1x1x1y1/g0, gx1x1y1y1/g0, gx1y1y1y1/g0, gy1y1y1y1/g0);
@@ -489,6 +562,8 @@ void gptcorInte(int* g_ang1, double* g_can1,
 	//print3x3(tGpt2);
 	copyNormalGpt(tGpt2, gpt);
 }
+
+
 
 void initGpt(double gpt[3][3])
 {

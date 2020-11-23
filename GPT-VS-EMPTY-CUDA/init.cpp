@@ -1,15 +1,18 @@
-#include "init.h"
 #include <stdio.h>
 
-void procImg(double* g_can, int* g_ang, double* g_nor, char* g_HoG, char* sHoG, unsigned char* image1)
+#include "init.h"
+#include "init_cuda.h"
+
+void procImg(double* g_can, int* g_ang, double* g_nor, int* sHoG, unsigned char* image1,int initial)
 {
 #if isGPU == 0
 	defcan2(g_can, image1);         /* canonicalization */
 	roberts8(g_ang, g_nor, image1); /* 8-quantization of gradient dir */
 	// calHoG(g_ang, g_HoG);				/* calculate sHOG pattern */
-	//smplHoG64(sHoG, g_ang, g_nor); /* Numberring the sHOG pattern to sHoGNUMBER */
+	smplHoG64(sHoG, g_ang, g_nor); /* Numberring the sHOG pattern to sHoGNUMBER */
 #elif isGPU == 1
-	// Shitian NI
+	// Morris Lee
+	cuda_procImg(g_can, g_ang, g_nor, image1, initial);
 #endif
 }
 
@@ -71,7 +74,7 @@ void roberts8(int* g_ang, double* g_nor, unsigned char* image1)
 	{
 		for (x = 0; x < COL; x++)
 		{
-			g_ang[y*COL+x] = 8;
+			g_ang[y*COL+x] = -1;
 			g_nor[y*COL+x] = 0.0;
 		}
 	}
@@ -121,7 +124,7 @@ void roberts8(int* g_ang, double* g_nor, unsigned char* image1)
 	}
 }
 
-void smplHoG64(char* sHoG, int* g_ang, double* g_nor)
+void smplHoG64(int* sHoG, int* g_ang, double* g_nor)
 {
 	int x, y, dx, dy, dir;
 	double HoG[8];
@@ -131,12 +134,12 @@ void smplHoG64(char* sHoG, int* g_ang, double* g_nor)
 	{
 		for (x = 0; x < COL - 4; x++)
 		{
-			sHoG[y*(ROW-4)+x] = -1;
+			sHoG[y*(COL-4)+x] = -1;
 			// initialize
 			for (dir = 0; dir < 8; dir++)
 			{
 				HoG[dir] = 0.0;
-				HoGIdx[dir] = dir + 1;
+				HoGIdx[dir] = dir;
 			}
 			// calculate HoG
 			for (dy = y; dy < y + 5; dy++)
@@ -144,7 +147,7 @@ void smplHoG64(char* sHoG, int* g_ang, double* g_nor)
 				for (dx = x; dx < x + 5; dx++)
 				{
 					if (g_ang[dy*COL+dx] == -1)
-						break;
+						continue;
 					HoG[g_ang[dy*COL+dx]] += g_nor[dy*COL+dx];
 				}
 			}
@@ -168,24 +171,26 @@ void smplHoG64(char* sHoG, int* g_ang, double* g_nor)
 			// calculate the direction
 			if (HoG[0] > SHoGTHRE)
 			{
-				sHoG[y*(ROW-4)+x] = (char)HoGIdx[0];
+				sHoG[y*(COL-4)+x] = HoGIdx[0]*8;
 				if (HoG[1] > SHoGSECONDTHRE * HoG[0])
 				{
-					sHoG[y+(ROW-4)+x] = sHoG[y*(ROW-4)+x] * 10 + (char)HoGIdx[1];
+					sHoG[y*(COL-4)+x] += HoGIdx[1];
 				}
 			}
-			// printf("<%d, %d> HoG = %d \n", y, x, sHoG[y][x]);
 		}
 	}
 }
 
 void bilinear_normal_projection(double gpt[3][3], int x_size1, int y_size1, int x_size2, int y_size2,
-	unsigned char* image1, unsigned char* image2)
+	unsigned char* image1, unsigned char* image2,int initial = 1)
 {
 	/* projection transformation of the image by bilinear interpolation */
 	double inv_gpt[3][3];
 	inverse3x3(gpt, inv_gpt);
-	bilinear_normal_inverse_projection(inv_gpt, x_size1, y_size1, x_size2, y_size2, image1, image2);
+	if (isGPU == 0)
+		bilinear_normal_inverse_projection(inv_gpt, x_size1, y_size1, x_size2, y_size2, image1, image2);
+	else
+		cuda_bilinear_normal_inverse_projection(inv_gpt, x_size1, y_size1, x_size2, y_size2, image1, image2, initial);
 }
 
 void bilinear_normal_inverse_projection(double gpt[3][3], int x_size1, int y_size1, int x_size2, int y_size2,

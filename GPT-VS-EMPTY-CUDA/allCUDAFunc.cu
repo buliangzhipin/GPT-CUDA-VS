@@ -439,13 +439,10 @@ double sHoGpatInteGPU(int* sHoG1)
 {
 	cudaMemset(d_count_ptr, 0, sizeof(int));
 	cudaMemset(d_dnn_ptr, 0, sizeof(double));
-	cudaMemcpy(d_sHoG_ptr, sHoG1, (ROW - 4)*(COL - 4) * sizeof(int), cudaMemcpyHostToDevice);
-
 	int dnnL[] = DNNL;
 	int nDnnL = NDNNL;
 	int count = 0;
 	double dnn = 0;
-
 	for (int wN = 0; wN < NDNNL; ++wN)
 	{
 		if (dnnL[wN] >= MAXWINDOWSIZE)

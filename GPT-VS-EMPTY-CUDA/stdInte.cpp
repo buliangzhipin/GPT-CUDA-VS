@@ -245,11 +245,7 @@ void gptcorsHoGInte(int* sHoG1, double* g_can1,
 	int* sHoG2, double* g_can2, double* gwt, double* inteCanDir,
 	double* inteDx2Dir, double* inteDy2Dir, double dnn, double gpt[3][3])
 {
-	if(isGPU == 1)
-	{
-		gptcorsHoGInteGPU();
-		return;
-	}
+
 	/* determination of optimal GAT components */
 	/* that yield the maximal correlation value */
 	int x1, y1;
@@ -291,7 +287,11 @@ void gptcorsHoGInte(int* sHoG1, double* g_can1,
 	pPos = MAXWINDOWSIZE + 1 + windowS;
 	mPos = MAXWINDOWSIZE - windowS;
 #endif
-
+	if (isGPU == 1)
+	{
+		gptcorsHoGInteGPU();
+		return;
+	}
 	/* Gaussian weigthed mean values */
 	g0 = gx1 = gy1 = gx2 = gy2 = 0.0;
 	gx1x1 = gx1y1 = gy1y1 = 0.0;

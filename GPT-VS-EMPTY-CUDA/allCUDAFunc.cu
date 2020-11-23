@@ -439,6 +439,7 @@ __global__ void cuda_calculateDnn()
 		d_dnn[0] = MAXWINDOWSIZE;
 	else
 		d_dnn[0] = d_dnn[0] / d_count[0];
+	d_dnn[0] *= WNNDEsHoGD;
 }
 
 
@@ -446,7 +447,7 @@ double sHoGpatInteGPU(int* sHoG1)
 {
 	cudaMemset(d_count_ptr, 0, sizeof(int));
 	cudaMemset(d_dnn_ptr, 0, sizeof(double));
-	cudaMemcpy(d_sHoG_ptr, sHoG1, (ROW - 4)*(COL - 4) * sizeof(int), cudaMemcpyHostToDevice);
+	//cudaMemcpy(d_sHoG_ptr, sHoG1, (ROW - 4)*(COL - 4) * sizeof(int), cudaMemcpyHostToDevice);
 
 	int dnnL[] = DNNL;
 	int nDnnL = NDNNL;
@@ -487,10 +488,11 @@ double sHoGpatInteGPU(int* sHoG1)
 
 //__device__ double d_g_sum_arrary[27*(ROW - 4)*(COL - 4)];
 __device__ double d_matrixSum[32];
-__device__ double d_pPos,d_mPos;
+__device__ int d_pPos[4],d_mPos[4];
 
 void *d_matrixSum_ptr;
 double *matrixSum;
+void *d_pPos_ptr, *d_mPos_ptr;
 
 void sHoGcoreInitial(double *inteCanDir, double *inteDx2Dir, double *inteDy2Dir)
 {
@@ -499,6 +501,9 @@ void sHoGcoreInitial(double *inteCanDir, double *inteDx2Dir, double *inteDy2Dir)
 	gpuErrchk(cudaGetSymbolAddress(&d_inteCanDir_ptr, d_inteCanDir));
 	gpuErrchk(cudaGetSymbolAddress(&d_inteDx2Dir_ptr, d_inteDx2Dir));
 	gpuErrchk(cudaGetSymbolAddress(&d_inteDy2Dir_ptr, d_inteDy2Dir));
+	gpuErrchk(cudaGetSymbolAddress(&d_pPos_ptr, d_pPos));
+	gpuErrchk(cudaGetSymbolAddress(&d_mPos_ptr, d_mPos));
+
 	cudaMemcpy(d_inteCanDir_ptr, inteCanDir, ROWINTE*COLINTE * 64 * sizeof(double), cudaMemcpyHostToDevice);
 	cudaMemcpy(d_inteDx2Dir_ptr, inteDx2Dir, ROWINTE*COLINTE * 64 * sizeof(double), cudaMemcpyHostToDevice);
 	cudaMemcpy(d_inteDy2Dir_ptr, inteDy2Dir, ROWINTE*COLINTE * 64 * sizeof(double), cudaMemcpyHostToDevice);
@@ -510,8 +515,8 @@ __global__ void cuda_calculateWindows()
 	int windowS = (int)(WGS * WGT * d_dnn[0] + 0.9999);
 	if (windowS > MAXWINDOWSIZE)
 		windowS = MAXWINDOWSIZE;
-	d_pPos = MAXWINDOWSIZE + 1 + windowS;
-	d_mPos = MAXWINDOWSIZE - windowS;
+	d_pPos[0] = MAXWINDOWSIZE + 1 + windowS;
+	d_mPos[0] = MAXWINDOWSIZE - windowS;
 
 }
 
@@ -532,8 +537,8 @@ __global__ void cuda_gptcorsHoGInte()
 	int dx1 = x1 - CX;
 	double t0 = 0, tx2 = 0, ty2 = 0;
 
-	int pPos = d_pPos;
-	int mPos = d_mPos;
+	int pPos = d_pPos[0];
+	int mPos = d_mPos[0];
 
 	int ang;
 	if ((ang = d_sHoG[y1 - 2][x1 - 2]) != -1)
@@ -990,9 +995,14 @@ void gptcorsHoGInteGPU()
 	setGPUSize(COL, ROW, TPB, TPB);
 	cudaMemset(d_matrixSum_ptr, 0, 27 * sizeof(double));
 	cuda_calculateWindows << <1, 1 >> > ();
+	gpuStop()
 	cuda_gptcorsHoGInte << <numBlock, numThread >> > ();
 	cuda_calculateGpt << <1, 1 >> > ();
 	cudaMemcpy(matrixSum, d_matrixSum_ptr, 27 * sizeof(double), cudaMemcpyDeviceToHost);
+	int mPos, pPos;
+	cudaMemcpy(&mPos, d_mPos_ptr, sizeof(int), cudaMemcpyDeviceToHost);
+	cudaMemcpy(&pPos, d_pPos_ptr, sizeof(int), cudaMemcpyDeviceToHost);
+
 
 	double *matrixTest = matrixSum;
 	for (int i = 0; i < 27; i++)

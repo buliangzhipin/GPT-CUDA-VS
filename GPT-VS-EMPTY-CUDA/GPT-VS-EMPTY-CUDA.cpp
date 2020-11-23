@@ -143,7 +143,9 @@ int main()
 			gptcorsHoGInte(sHoG1, g_can1, sHoG2, g_can2, gwt, inteCanDir, inteDx2Dir, inteDy2Dir, dnn, gpt1);
 			bilinear_normal_projection(gpt1, COL, ROW, COL2, ROW2, image1, image2,0);
 			procImg(g_can1, g_ang1, g_nor1, sHoG1, image2,0);
-			dnn = WNNDEsHoGD * sHoGpatInte(sHoG1, inteAng);
+			//dnn = WNNDEsHoGD * sHoGpatInte(sHoG1, inteAng);
+			dnn = sHoGpatInte(sHoG1, inteAng);
+
 
 			/* update correlation */
 			new_cor1 = 0.0;

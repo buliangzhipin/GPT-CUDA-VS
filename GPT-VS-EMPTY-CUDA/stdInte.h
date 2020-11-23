@@ -2,7 +2,6 @@
 #include "parameter.h"
 
 
-#define WNNDEsHoGD  0.7          /* NNDEGDを四角で測っているための補正 */
 #define WNNDEGD 1.2 /* NNDEGDを四角で測っているための補正 */
 
 

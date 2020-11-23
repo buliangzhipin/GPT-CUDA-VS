@@ -245,6 +245,11 @@ void gptcorsHoGInte(int* sHoG1, double* g_can1,
 	int* sHoG2, double* g_can2, double* gwt, double* inteCanDir,
 	double* inteDx2Dir, double* inteDy2Dir, double dnn, double gpt[3][3])
 {
+	if(isGPU == 1)
+	{
+		gptcorsHoGInteGPU();
+		return;
+	}
 	/* determination of optimal GAT components */
 	/* that yield the maximal correlation value */
 	int x1, y1;
@@ -294,9 +299,6 @@ void gptcorsHoGInte(int* sHoG1, double* g_can1,
 	gx1x1x1 = gx1x1y1 = gx1y1y1 = gy1y1y1 = 0.0;
 	gx1x1x2 = gx1x1y2 = gx1y1x2 = gx1y1y2 = gy1y1x2 = gy1y1y2 = 0.0;
 	gx1x1x1x1 = gx1x1x1y1 = gx1x1y1y1 = gx1y1y1y1 = gy1y1y1y1 = 0.0;
-
-	if(isGPU == 0)
-	{ 
 
 		for (y1 = MARGINE + 2; y1 < ROW - MARGINE - 2; y1++)
 		{
@@ -356,40 +358,7 @@ void gptcorsHoGInte(int* sHoG1, double* g_can1,
 				gy1y1y2 += ty2 * dy1 * dy1;
 			}
 		}
-	}
-	else
-	{
-			double* matrix = gptcorsHoGInteGPU(dnn);
-			g0 = matrix[0];
-			gx1 = matrix[1];
-			gy1 = matrix[2];
-			gx1x1 = matrix[3];
-			gx1y1 = matrix[4];
-			gy1y1 = matrix[5];
-			gx1x1x1 = matrix[6];
-			gx1x1y1 = matrix[7];
-			gx1y1y1 = matrix[8];
-			gy1y1y1 = matrix[9];
-			gx1x1x1x1 = matrix[10];
-			gx1x1x1y1 = matrix[11];
-			gx1x1y1y1 = matrix[12];
-			gx1y1y1y1 = matrix[13];
-			gy1y1y1y1 = matrix[14];
 
-			gx2 = matrix[15];
-			gy2 = matrix[16];
-			gx1x2 = matrix[17];
-			gx1y2 = matrix[18];
-			gy1x2 = matrix[19];
-			gy1y2 = matrix[20];
-			gx1x1x2 = matrix[21];
-			gx1x1y2 = matrix[22];
-			gx1y1x2 = matrix[23];
-			gx1y1y2 = matrix[24];
-			gy1y1x2 = matrix[25];
-			gy1y1y2 = matrix[26];
-
-	}
 	// printf("dnn = %f g0 = %f gx1 = %f  gy1 = %f gx2 = %f  gy2 = %f\n", dnn, g0, gx1, gy1, gx2, gy2);
 	// printf("dnn = %f normal gx1x1x1x1 = %f gx1x1x1y1 = %f  gx1x1y1y1 = %f gx1y1y1y1 = %f  gy1y1y1y1y1 = %f\n", dnn, gx1x1x1x1/g0, gx1x1x1y1/g0, gx1x1y1y1/g0, gx1y1y1y1/g0, gy1y1y1y1/g0);
 

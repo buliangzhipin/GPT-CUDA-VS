@@ -39,6 +39,9 @@
 #define DNNL {0, 1, 2, 3, 4, 6, 8, 11, 16, 23, 32, 45, 64, 91, 128, 181, 256, 362, 512};
 #define NDNNL 19
 #define WGS 1.5 /* Gauss型窓関数を1つの矩形で表すための幅の比 */
+#define NI 8 /* For inverse matrix */
+#define MU 1.0  /* 緩和係数 of Newton */
+
 
 
 /* initial conditions */

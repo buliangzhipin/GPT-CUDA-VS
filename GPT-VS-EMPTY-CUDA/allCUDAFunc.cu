@@ -354,10 +354,10 @@ void cuda_bilinear_normal_inverse_projection(double gpt[3][3], int x_size1, int 
 	/* inverse projection transformation of the image by bilinear interpolation */
 
 	if (initial == 1)
+	{
 		cudaMemcpy(d_image2_ptr, image1, sizeof(unsigned char)*ROW2*COL2, cudaMemcpyHostToDevice);
-
-
-	cudaMemcpy(d_gpt_ptr,gpt, 3 * 3 * sizeof(double), cudaMemcpyHostToDevice);
+		cudaMemcpy(d_gpt_ptr, gpt, 3 * 3 * sizeof(double), cudaMemcpyHostToDevice);
+	}
 	setGPUSize(COL, ROW, TPB, TPB);
 	cuda_calc_bilinear_normal_inverse_projection << <numBlock, numThread >> > (x_size1, y_size1, x_size2, y_size2);
 }
@@ -433,6 +433,13 @@ __global__ void cuda_sHoGpatInte(int nDnnL)
 	d_count_array[location] = count;
 }
 
+__global__ void cuda_calculateDnn()
+{
+	if (d_count[0] == 0)
+		d_dnn[0] = MAXWINDOWSIZE;
+	else
+		d_dnn[0] = d_dnn[0] / d_count[0];
+}
 
 
 double sHoGpatInteGPU(int* sHoG1)
@@ -461,17 +468,17 @@ double sHoGpatInteGPU(int* sHoG1)
 	int size = iDivUp((COL-4)*(ROW-4), TPB_X_TPB);
 	cuda_sumMatrix << <size, TPB_X_TPB >> > (d_dnn_array_ptr, d_dnn_ptr, ROW-4, COL-4, 0);
 	cuda_sumMatrix << <size, TPB_X_TPB >> > (d_count_array_ptr, d_count_ptr, ROW-4, COL-4, 0);
+	cuda_calculateDnn << <1, 1 >> > ();
 
-
-	cudaMemcpy(&count, d_count_ptr, sizeof(int), cudaMemcpyDeviceToHost);
+	//cudaMemcpy(&count, d_count_ptr, sizeof(int), cudaMemcpyDeviceToHost);
 	cudaMemcpy(&dnn, d_dnn_ptr, sizeof(double), cudaMemcpyDeviceToHost);
-
+/*
 	double ddnn;
 	if (count == 0)
 		ddnn = MAXWINDOWSIZE;
 	else
-		ddnn = (double)dnn / count;
-	return ddnn;
+		ddnn = (double)dnn / count;*/
+	return dnn;
 }
 
 #pragma endregion SHoGPat
@@ -480,6 +487,7 @@ double sHoGpatInteGPU(int* sHoG1)
 
 //__device__ double d_g_sum_arrary[27*(ROW - 4)*(COL - 4)];
 __device__ double d_matrixSum[32];
+__device__ double d_pPos,d_mPos;
 
 void *d_matrixSum_ptr;
 double *matrixSum;
@@ -497,7 +505,17 @@ void sHoGcoreInitial(double *inteCanDir, double *inteDx2Dir, double *inteDy2Dir)
 	gpuStop()
 }
 
-__global__ void cuda_gptcorsHoGInte(double dnn, int pPos, int mPos)
+__global__ void cuda_calculateWindows()
+{
+	int windowS = (int)(WGS * WGT * d_dnn[0] + 0.9999);
+	if (windowS > MAXWINDOWSIZE)
+		windowS = MAXWINDOWSIZE;
+	d_pPos = MAXWINDOWSIZE + 1 + windowS;
+	d_mPos = MAXWINDOWSIZE - windowS;
+
+}
+
+__global__ void cuda_gptcorsHoGInte()
 {
 	int tid = threadIdx.y * blockDim.x + threadIdx.x;
 	int x1 = blockIdx.x*blockDim.x + threadIdx.x + 2;
@@ -514,6 +532,8 @@ __global__ void cuda_gptcorsHoGInte(double dnn, int pPos, int mPos)
 	int dx1 = x1 - CX;
 	double t0 = 0, tx2 = 0, ty2 = 0;
 
+	int pPos = d_pPos;
+	int mPos = d_mPos;
 
 	int ang;
 	if ((ang = d_sHoG[y1 - 2][x1 - 2]) != -1)
@@ -659,20 +679,327 @@ __global__ void cuda_gptcorsHoGInte(double dnn, int pPos, int mPos)
 	customAdd(sdata, d_matrixSum + 26);
 }
 
-double* gptcorsHoGInteGPU(double dnn) 
+__device__ void cuda_initGpt(double gpt[3][3])
 {
-	int windowS = (int)(WGS * WGT * dnn + 0.9999);
-	int pPos, mPos;
-	if (windowS > MAXWINDOWSIZE)
-		windowS = MAXWINDOWSIZE;
-	pPos = MAXWINDOWSIZE + 1 + windowS;
-	mPos = MAXWINDOWSIZE - windowS;
+
+		gpt[0][0] = 1.0;
+		gpt[0][1] = 0.0;
+		gpt[1][0] = 0.0;
+		gpt[1][1] = 1.0;
+		gpt[0][2] = 0.0;
+		gpt[1][2] = 0.0;
+		gpt[2][0] = 0.0;
+		gpt[2][1] = 0.0;
+		gpt[2][2] = 1.0;
+}
+
+__device__ void cuda_multplyMV(double inMat[NI][NI + 1], double v[NI])
+{
+	int i, j;
+	double sum;
+	for (i = 0; i < NI; ++i)
+	{
+		sum = 0.0;
+		for (j = 0; j < NI; ++j)
+		{
+			sum += inMat[i][j] * inMat[j][NI];
+		}
+		v[i] = sum;
+	}
+}
+
+__device__ void cuda_solveLEq(double inMat[NI][NI + 1])
+{
+	int i, j, j2, maxI;
+	double tmp, pivVal;
+
+	//printNxN1(inMat);
+	for (j = 0; j < NI; ++j)
+	{
+		/* Search pivot */
+		maxI = j;
+		for (i = j + 1; i < NI; ++i)
+		{
+			if (fabs(inMat[i][j]) > fabs(inMat[maxI][j]))
+				maxI = i;
+		}
+		pivVal = inMat[maxI][j];
+		if (maxI != j)
+		{
+			/* Swap j th row and maxI th row */
+			for (j2 = 0; j2 < NI + 1; ++j2)
+			{
+				tmp = inMat[j][j2];
+				inMat[j][j2] = inMat[maxI][j2] / pivVal;
+				inMat[maxI][j2] = tmp;
+			}
+		}
+		else
+		{
+			for (j2 = 0; j2 < NI + 1; ++j2)
+				inMat[j][j2] /= pivVal;
+		}
+		for (i = 0; i < NI; ++i)
+		{
+			if (i == j)
+				continue;
+			pivVal = inMat[i][j];
+			for (j2 = 0; j2 < NI + 1; ++j2)
+				inMat[i][j2] -= pivVal * inMat[j][j2];
+		}
+		//printNxN(inMat);
+	}
+}
+
+__device__ void cuda_multiply3x3(double inMat1[3][3], double inMat2[3][3], double outMat[3][3])
+{
+	int i, j, k;
+	double sum;
+	for (i = 0; i < 3; ++i)
+	{
+		for (j = 0; j < 3; ++j)
+		{
+			sum = 0.0;
+			for (k = 0; k < 3; ++k)
+			{
+				sum += inMat1[i][k] * inMat2[k][j];
+			}
+			outMat[i][j] = sum;
+		}
+	}
+}
+
+__device__ void cuda_copyNormalGpt(double inGpt[3][3], double outGpt[3][3])
+{
+	int i, j;
+	double nf = 1.0 / inGpt[2][2];
+	for (i = 0; i < 3; ++i)
+	{
+		for (j = 0; j < 3; ++j)
+		{
+			outGpt[i][j] = nf * inGpt[i][j];
+		}
+	}
+}
+
+__global__ void cuda_calculateGpt()
+{
+	int x1, y1;
+	int i, j, loop;
+	double g0, gx1, gy1, gx2, gy2;
+	double gx1x1, gx1y1, gy1y1, gx1x2, gx1y2, gy1x2, gy1y2;
+	double t0, tx2, ty2;
+	double gx1x1x1, gx1x1y1, gx1y1y1, gy1y1y1;
+	double gx1x1x2, gx1x1y2, gx1y1x2, gx1y1y2, gy1y1x2, gy1y1y2;
+	double gx1x1x1x1, gx1x1x1y1, gx1x1y1y1, gx1y1y1y1, gy1y1y1y1;
+	double tx1, ty1, tx1x1, tx1y1, ty1y1, tx1x1x1, tx1x1y1, tx1y1y1, ty1y1y1;
+	double U[NI][NI + 1], U0[NI][NI + 1];
+	double V[NI][NI + 1], v[NI];
+	double tGpt1[3][3], tGpt2[3][3];
+	double detA, r, rg0;
+	double Ainv11, Ainv12, Ainv21, Ainv22, grAinv11, grAinv12, grAinv21, grAinv22;
+	double var = WGT * WGT * d_dnn[0] * d_dnn[0];
+
+	g0 = d_matrixSum[0];
+	gx1 = d_matrixSum[1];
+	gy1 = d_matrixSum[2];
+	gx1x1 = d_matrixSum[3];
+	gx1y1 = d_matrixSum[4];
+	gy1y1 = d_matrixSum[5];
+	gx1x1x1 = d_matrixSum[6];
+	gx1x1y1 = d_matrixSum[7];
+	gx1y1y1 = d_matrixSum[8];
+	gy1y1y1 = d_matrixSum[9];
+	gx1x1x1x1 = d_matrixSum[10];
+	gx1x1x1y1 = d_matrixSum[11];
+	gx1x1y1y1 = d_matrixSum[12];
+	gx1y1y1y1 = d_matrixSum[13];
+	gy1y1y1y1 = d_matrixSum[14];
+
+	gx2 = d_matrixSum[15];
+	gy2 = d_matrixSum[16];
+	gx1x2 = d_matrixSum[17];
+	gx1y2 = d_matrixSum[18];
+	gy1x2 = d_matrixSum[19];
+	gy1y2 = d_matrixSum[20];
+	gx1x1x2 = d_matrixSum[21];
+	gx1x1y2 = d_matrixSum[22];
+	gx1y1x2 = d_matrixSum[23];
+	gx1y1y2 = d_matrixSum[24];
+	gy1y1x2 = d_matrixSum[25];
+	gy1y1y2 = d_matrixSum[26];
+
+	r = 0.5 * var;
+	rg0 = r * g0;
+
+	V[0][0] = /* D11 */ gx1x1;
+	V[1][0] = /* D21 */ gx1y1;
+	V[2][0] = /* 0   */ 0.0;
+	V[3][0] = /* 0   */ 0.0;
+	V[4][0] = /* m1  */ gx1;
+	V[5][0] = /* 0   */ 0.0;
+	V[6][0] = /* E11 */ gx1x1x1;
+	V[7][0] = /* E31 */ gx1x1y1;
+	V[0][1] = /* D12 */ gx1y1;
+	V[1][1] = /* D22 */ gy1y1;
+	V[2][1] = /* 0   */ 0.0;
+	V[3][1] = /* 0   */ 0.0;
+	V[4][1] = /* m2  */ gy1;
+	V[5][1] = /* 0   */ 0.0;
+	V[6][1] = /* E12 */ gx1x1y1;
+	V[7][1] = /* E32 */ gx1y1y1;
+	V[0][2] = /* 0   */ 0.0;
+	V[1][2] = /* 0   */ 0.0;
+	V[2][2] = /* D11 */ gx1x1;
+	V[3][2] = /* D21 */ gx1y1;
+	V[4][2] = /* 0   */ 0.0;
+	V[5][2] = /* m1  */ gx1;
+	V[6][2] = /* E21 */ gx1x1y1;
+	V[7][2] = /* E41 */ gx1y1y1;
+	V[0][3] = /* 0   */ 0.0;
+	V[1][3] = /* 0   */ 0.0;
+	V[2][3] = /* D12 */ gx1y1;
+	V[3][3] = /* D22 */ gy1y1;
+	V[4][3] = /* 0   */ 0.0;
+	V[5][3] = /* m2  */ gy1;
+	V[6][3] = /* E22 */ gx1y1y1;
+	V[7][3] = /* E42 */ gy1y1y1;
+	V[0][4] = /* m1  */ gx1;
+	V[1][4] = /* m2  */ gy1;
+	V[2][4] = /* 0   */ 0.0;
+	V[3][4] = /* 0   */ 0.0;
+	V[4][4] = /* 1   */ g0;
+	V[5][4] = /* 0   */ 0.0;
+	V[6][4] = /* D11 */ gx1x1;
+	V[7][4] = /* D21 */ gx1y1;
+	V[0][5] = /* 0   */ 0.0;
+	V[1][5] = /* 0   */ 0.0;
+	V[2][5] = /* m1  */ gx1;
+	V[3][5] = /* m2  */ gy1;
+	V[4][5] = /* 0   */ 0.0;
+	V[5][5] = /* 1   */ g0;
+	V[6][5] = /* D12 */ gx1y1;
+	V[7][5] = /* D22 */ gy1y1;
+
+	V[0][6] = /*-E11 */ -gx1x1x1;
+	V[1][6] = /*-E21 */ -gx1x1y1;
+	V[2][6] = /*-E31 */ -gx1x1y1;
+	V[3][6] = /*-E41 */ -gx1y1y1;
+	V[4][6] = /*-D11 */ -gx1x1;
+	V[5][6] = /*-D21 */ -gx1y1;
+	V[6][6] = /*-F11 - r * D11 */ -gx1x1x1x1 - gx1x1y1y1 - r * gx1x1;
+	V[7][6] = /*-F21 - r * D21 */ -gx1x1x1y1 - gx1y1y1y1 - r * gx1y1;
+
+	V[0][7] = /*-E12 */ -gx1x1y1;
+	V[1][7] = /*-E22 */ -gx1y1y1;
+	V[2][7] = /*-E32 */ -gx1y1y1;
+	V[3][7] = /*-E42 */ -gy1y1y1;
+	V[4][7] = /*-D12 */ -gx1y1;
+	V[5][7] = /*-D22 */ -gy1y1;
+	V[6][7] = /*-F12 - r * D12 */ -gx1x1x1y1 - gx1y1y1y1 - r * gx1y1;
+	V[7][7] = /*-F22 - r * D22 */ -gx1x1y1y1 - gy1y1y1y1 - r * gy1y1;
+
+	for (i = 0; i < NI; ++i)
+	{
+		for (j = 0; j < NI; ++j)
+		{
+			U0[i][j] = V[i][j];
+		}
+	}
+
+	cuda_initGpt(tGpt1);
+	for (loop = 0; loop < MAXNR; ++loop)
+	{
+
+		V[0][8] = /* a11 */ tGpt1[0][0];
+		V[1][8] = /* a12 */ tGpt1[0][1];
+		V[2][8] = /* a21 */ tGpt1[1][0];
+		V[3][8] = /* a22 */ tGpt1[1][1];
+		V[4][8] = /* b1  */ tGpt1[0][2];
+		V[5][8] = /* b2  */ tGpt1[1][2];
+		V[6][8] = /* c1  */ tGpt1[2][0];
+		V[7][8] = /* c2  */ tGpt1[2][1];
+		cuda_multplyMV(V, v);
+
+		detA = tGpt1[0][0] * tGpt1[1][1] - tGpt1[1][0] * tGpt1[0][1];
+		Ainv11 = tGpt1[1][1] / detA;
+		Ainv21 = -tGpt1[1][0] / detA;
+		Ainv12 = -tGpt1[0][1] / detA;
+		Ainv22 = tGpt1[0][0] / detA;
+		grAinv11 = rg0 * Ainv11;
+		grAinv21 = rg0 * Ainv21;
+		grAinv12 = rg0 * Ainv12;
+		grAinv22 = rg0 * Ainv22;
+
+		for (i = 0; i < NI; ++i)
+		{
+			for (j = 0; j < NI; ++j)
+			{
+				U[i][j] = U0[i][j];
+			}
+		}
+
+		U[0][0] += /* D11 + rT11 */ grAinv11 * Ainv11;
+		U[1][0] += /* D21 + rT21 */ grAinv11 * Ainv12;
+		U[2][0] += /* rT31 */ grAinv21 * Ainv11;
+		U[3][0] += /* rT41 */ grAinv21 * Ainv12;
+
+		U[0][1] += /* D12 + rT12 */ grAinv11 * Ainv21;
+		U[1][1] += /* D22 + rT22 */ grAinv11 * Ainv22;
+		U[2][1] += /* rT32 */ grAinv21 * Ainv21;
+		U[3][1] += /* rT42 */ grAinv21 * Ainv22;
+
+		U[0][2] += /* rT13 */ grAinv21 * Ainv11;
+		U[1][2] += /* rT23 */ grAinv21 * Ainv12;
+		U[2][2] += /* D11 + rT33 */ grAinv22 * Ainv11;
+		U[3][2] += /* D21 + rT43 */ grAinv22 * Ainv12;
+
+		U[0][3] += /* rT14 */ grAinv21 * Ainv21;
+		U[1][3] += /* rT24 */ grAinv21 * Ainv22;
+		U[2][3] += /* D12 + rT34 */ grAinv22 * Ainv21;
+		U[3][3] += /* D22 + rT44 */ grAinv22 * Ainv22;
+
+		U[0][8] = /* G'11 - v[0] */ gx1x2 + grAinv11 - v[0];
+		U[1][8] = /* G'12 - v[1] */ gy1x2 + grAinv12 - v[1];
+		U[2][8] = /* G'21 - v[2] */ gx1y2 + grAinv21 - v[2];
+		U[3][8] = /* G'22 - v[3] */ gy1y2 + grAinv22 - v[3];
+		U[4][8] = /* n1   - v[4] */ gx2 - v[4];
+		U[5][8] = /* n2   - v[5] */ gy2 - v[5];
+		U[6][8] = /* h1   - v[6] */ gx1x1x2 + gx1y1y2 - r * gx1 - v[6];
+		U[7][8] = /* h2   - v[7] */ gx1y1x2 + gy1y1y2 - r * gy1 - v[7];
+
+		//printf("gx2 = %lf gy2 = %lf  v[4] = %lf  v[5] = %lf \n", gx2, gy2, v[4], v[5]);
+		cuda_solveLEq(U);
+
+		tGpt1[0][0] += MU * U[0][8];
+		tGpt1[0][1] += MU * U[1][8];
+		tGpt1[1][0] += MU * U[2][8];
+		tGpt1[1][1] += MU * U[3][8];
+		tGpt1[0][2] += MU * U[4][8];
+		tGpt1[1][2] += MU * U[5][8];
+		tGpt1[2][0] += MU * U[6][8];
+		tGpt1[2][1] += MU * U[7][8];
+	}
+
+	cuda_multiply3x3(tGpt1, d_gpt, tGpt2);
+	cuda_copyNormalGpt(tGpt2, d_gpt);
+}
+
+void gptcorsHoGInteGPU() 
+{
 	setGPUSize(COL, ROW, TPB, TPB);
 	cudaMemset(d_matrixSum_ptr, 0, 27 * sizeof(double));
-	cuda_gptcorsHoGInte << <numBlock, numThread >> > (dnn, pPos, mPos);
+	cuda_calculateWindows << <1, 1 >> > ();
+	cuda_gptcorsHoGInte << <numBlock, numThread >> > ();
+	cuda_calculateGpt << <1, 1 >> > ();
 	cudaMemcpy(matrixSum, d_matrixSum_ptr, 27 * sizeof(double), cudaMemcpyDeviceToHost);
 
-	return matrixSum;
+	double *matrixTest = matrixSum;
+	for (int i = 0; i < 27; i++)
+	{
+		cout << matrixTest[i] << endl;
+	}
+
 }
 
 

@@ -40,14 +40,6 @@ int main()
 	double gpt1[3][3];
 	initGpt2(gpt1, ZOOM, ZOOM * BETA, B1, B2, ROT);
 
-
-#pragma region Initial_Gauss_Function
-	double gk[ROW][COL];
-	for (int y = 0; y < ROW; y++)
-		for (int x = 0; x < COL; x++)
-			gk[y][x] = exp(-(x * x + y * y) / 2.0);
-#pragma endregion Initial_Gauss_Function
-
 	procImageInitial();
 	bilinearInitial();
 
@@ -63,6 +55,7 @@ int main()
 	double *g_nor2 = new double[ROW*COL]; // norm of gradients
 	double *g_can2 = new double[ROW*COL]; // canonicalized images
 	procImg(g_can2, g_ang2, g_nor2, sHoG2, image1,1);
+	getsHoGAndCan(sHoG2, g_can2);
 #pragma endregion Load_And_Proc_Image
 
 
@@ -72,7 +65,12 @@ int main()
 	double* inteCanDir = new double[ROWINTE*COLINTE*64];
 	double* inteDx2Dir = new double[ROWINTE*COLINTE*64];
 	double* inteDy2Dir = new double[ROWINTE*COLINTE*64];
+	clock_t start1, end1;
+	start1 = clock();
 	calInte64(g_can2, sHoG2, inteAng, inteCanDir, inteDx2Dir, inteDy2Dir);
+	end1 = clock();		//程序结束用时
+	double endtime1 = (double)(end1 - start1) / CLOCKS_PER_SEC;
+	cout << "Total time Inte:" << endtime1 * 1000 << "ms" << endl;	//ms为单位
 #pragma endregion Calculate_Inte
 
 	sHoGpatInitial(inteAng);
@@ -87,11 +85,6 @@ int main()
 	sprintf(fileName, "%s/%s.pgm", IMGDIR, TsIMAGE);
 	load_image_file(fileName, image1, COL2, ROW2);
 	unsigned char *image2 = new unsigned char[COL2*ROW2];
-	unsigned char *image3 = new unsigned char[COL2*ROW2];
-	for (int y = 0; y < ROW2; y++)
-		for (int x = 0; x < COL2; x++)
-			image3[y*COL2+x] = image1[y*COL2+x];
-
 	/* save the initial image */
 	for (int y = 0; y < ROW2; y++)
 		for (int x = 0; x < COL2; x++)
@@ -104,12 +97,9 @@ int main()
 	int *sHoG1 = new int[(ROW - 4)*(COL - 4)];
 	double *g_nor1 = new double[ROW*COL]; // norm of gradients
 	double *g_can1 = new double[ROW*COL]; // canonicalized images
-	clock_t start1, end1;
-	start1 = clock();
 	procImg(g_can1, g_ang1, g_nor1, sHoG1, image2,0); 
-	end1 = clock();		//程序结束用时
-	double endtime1 = (double)(end1 - start1) / CLOCKS_PER_SEC;
-	cout << "Total time Proc:" << endtime1 * 1000 << "ms" << endl;	//ms为单位
+	getsHoGAndCan(sHoG1, g_can1);
+
 #pragma endregion Load_And_Proc_Image
 	cout << "process2 finished" << endl;
 
@@ -151,20 +141,16 @@ int main()
 		{
 			//Match
 			gptcorsHoGInte(sHoG1, g_can1, sHoG2, g_can2, gwt, inteCanDir, inteDx2Dir, inteDy2Dir, dnn, gpt1);
-			/* transform the test image and update g_can1, g_ang1, g_nor1, g_HoG1, sHoG1 */
-			//for (int y = 0; y < ROW2; y++)
-			//	for (int x = 0; x < COL2; x++)
-			//		image1[y*COL2+x] = (unsigned char)image3[y*COL2+x];
 			bilinear_normal_projection(gpt1, COL, ROW, COL2, ROW2, image1, image2,0);
 			procImg(g_can1, g_ang1, g_nor1, sHoG1, image2,0);
+			dnn = WNNDEsHoGD * sHoGpatInte(sHoG1, inteAng);
 
 			/* update correlation */
-			new_cor1 = 0.0;
+			//new_cor1 = 0.0;
+			//getsHoGAndCan(sHoG1, g_can1);
 			//for (int y = margine; y < ROW - margine; y++)
 			//	for (int x = margine; x < COL - margine; x++)
-			//		new_cor1 += g_can1[y*COL+x] * g_can2[y*COL+x];
-		
-			dnn = WNNDEsHoGD * sHoGpatInte(sHoG1, inteAng);
+			//		new_cor1 += g_can1[y*COL+x] * g_can2[y*COL+x];		
 			//printf("iter = %d, new col. = %f dnn = %f   (d2 = %f) \n", iter, new_cor1, dnn, d2);
 		}
 		end = clock();		//程序结束用时

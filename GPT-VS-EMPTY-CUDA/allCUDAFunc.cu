@@ -181,6 +181,62 @@ __global__ void cuda_roberts8() {
 	d_g_ang1[y][x] = 5;
 }
 
+__global__ void cuda_calculatesHoG()
+{
+	int x = blockIdx.x*blockDim.x + threadIdx.x;
+	int y = blockIdx.y*blockDim.y + threadIdx.y;
+	if ((y >= ROW - 4) || (x >= COL - 4)) {
+		return;
+	}
+	double HoG[8];
+	for (int dir = 0; dir < 8; dir++)
+	{
+		HoG[dir] = 0.0;
+	}
+
+	for (int i = 0; i < 5;i++)
+	{
+		for (int j = 0; j < 5; j++)
+		{
+			int ang = d_g_ang1[y + i][x + j];
+			if (ang == -1)
+			{
+				continue;
+			}
+			HoG[ang] += d_g_nor1[y + i][x + j];
+		}
+	}
+
+	int maxIndex = 0;
+	int maxIndex2 = 0;
+	for (int dir = 1; dir < 8; dir++)
+	{
+		if (HoG[maxIndex] <= HoG[dir])
+		{
+			maxIndex = dir;
+		}
+	}
+
+	for (int dir = 1; dir < 8; dir++)
+	{
+		if (HoG[maxIndex2] <= HoG[dir] && maxIndex != dir)
+		{
+			maxIndex2 = dir;
+		}
+	}
+
+	int sHoG = -1;
+	if (HoG[maxIndex] > SHoGTHRE)
+	{
+		sHoG = maxIndex * 8;
+		if (HoG[maxIndex2] > SHoGSECONDTHRE*HoG[maxIndex])
+		{
+			sHoG += maxIndex2;
+		}
+	}
+	d_sHoG[y][x] = sHoG;
+}
+
 void procImageInitial()
 {
 	gpuErrchk(cudaGetSymbolAddress(&d_image1_ptr, d_image1));
@@ -210,16 +266,21 @@ void cuda_procImg(double* g_can, int* g_ang, double* g_nor, unsigned char* image
 
 	cuda_defcan2 << <numBlock, numThread >> > ();
 	cuda_roberts8 << <numBlock, numThread >> > ();
-	cudaMemcpy(g_can, d_g_can1_ptr, ROW*COL * sizeof(double), cudaMemcpyDeviceToHost);
-	cudaMemcpy(g_ang, d_g_ang1_ptr, ROW*COL * sizeof(int), cudaMemcpyDeviceToHost);
-	cudaMemcpy(g_nor, d_g_nor1_ptr, ROW*COL * sizeof(double), cudaMemcpyDeviceToHost);
+	cuda_calculatesHoG << <numBlock, numThread >> > ();
+	//cudaMemcpy(g_can, d_g_can1_ptr, ROW*COL * sizeof(double), cudaMemcpyDeviceToHost);
+	//cudaMemcpy(g_ang, d_g_ang1_ptr, ROW*COL * sizeof(int), cudaMemcpyDeviceToHost);
+	//cudaMemcpy(g_nor, d_g_nor1_ptr, ROW*COL * sizeof(double), cudaMemcpyDeviceToHost);
 	gpuStop()
 
 }
 
-void updatesHoG(int *sHoG)
+void getsHoGAndCan(int *sHoG,double *g_can)
 {
-	cudaMemcpy(d_sHoG_ptr, sHoG, (ROW - 4)*(COL - 4) * sizeof(int), cudaMemcpyHostToDevice);
+	if (isGPU == 1)
+	{
+		cudaMemcpy(sHoG, d_sHoG_ptr, (ROW - 4)*(COL - 4) * sizeof(int), cudaMemcpyDeviceToHost);
+		cudaMemcpy(g_can, d_g_can1_ptr, ROW*COL * sizeof(double), cudaMemcpyDeviceToHost);
+	}
 }
 #pragma endregion ProcImage
 
@@ -230,7 +291,7 @@ void bilinearInitial()
 {
 	gpuErrchk(cudaGetSymbolAddress(&d_gpt_ptr, d_gpt));
 	gpuErrchk(cudaGetSymbolAddress(&d_image2_ptr, d_image2));
-	gpuStop();
+	gpuStop()
 }
 
 __global__ void cuda_calc_bilinear_normal_inverse_projection(int x_size1, int y_size1, int x_size2, int y_size2) {
@@ -293,8 +354,7 @@ void cuda_bilinear_normal_inverse_projection(double gpt[3][3], int x_size1, int 
 	/* inverse projection transformation of the image by bilinear interpolation */
 
 	if (initial == 1)
-		cudaMemcpy(d_image2_ptr,image1, sizeof(unsigned char)*ROW2*COL2, cudaMemcpyHostToDevice);
-	gpuStop()
+		cudaMemcpy(d_image2_ptr, image1, sizeof(unsigned char)*ROW2*COL2, cudaMemcpyHostToDevice);
 
 
 	cudaMemcpy(d_gpt_ptr,gpt, 3 * 3 * sizeof(double), cudaMemcpyHostToDevice);

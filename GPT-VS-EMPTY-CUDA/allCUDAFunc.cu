@@ -33,6 +33,16 @@ void setGPUSize(int blockX, int blockY, int threadX, int threadY)
 }
 
 template<typename T>
+__device__ void warpReduce(volatile T* sdata, T* g_odata,int tid) {
+	sdata[tid] += sdata[tid + 32];
+	sdata[tid] += sdata[tid + 16];
+	sdata[tid] += sdata[tid + 8];
+	sdata[tid] += sdata[tid + 4];
+	sdata[tid] += sdata[tid + 2];
+	sdata[tid] += sdata[tid + 1];
+}
+
+template<typename T>
 __device__ void customAdd(T* sdata, T* g_odata) {
 	int tx = threadIdx.x;
 	int ty = threadIdx.y;
@@ -42,12 +52,13 @@ __device__ void customAdd(T* sdata, T* g_odata) {
 	if (tid < 256) { sdata[tid] += sdata[tid + 256]; } __syncthreads();
 	if (tid < 128) { sdata[tid] += sdata[tid + 128]; } __syncthreads();
 	if (tid < 64) { sdata[tid] += sdata[tid + 64]; } __syncthreads();
-	if (tid < 32) { sdata[tid] += sdata[tid + 32]; }__syncthreads();
-	if (tid < 16) { sdata[tid] += sdata[tid + 16]; }__syncthreads();
-	if (tid < 8) { sdata[tid] += sdata[tid + 8]; }__syncthreads();
-	if (tid < 4) { sdata[tid] += sdata[tid + 4]; }__syncthreads();
-	if (tid < 2) { sdata[tid] += sdata[tid + 2]; }__syncthreads();
-	if (tid < 1) { sdata[tid] += sdata[tid + 1]; }__syncthreads();
+	if (tid < 32) warpReduce(sdata, tid); __syncthreads();
+	//if (tid < 32) { sdata[tid] += sdata[tid + 32]; }__syncthreads();
+	//if (tid < 16) { sdata[tid] += sdata[tid + 16]; }__syncthreads();
+	//if (tid < 8) { sdata[tid] += sdata[tid + 8]; }__syncthreads();
+	//if (tid < 4) { sdata[tid] += sdata[tid + 4]; }__syncthreads();
+	//if (tid < 2) { sdata[tid] += sdata[tid + 2]; }__syncthreads();
+	//if (tid < 1) { sdata[tid] += sdata[tid + 1]; }__syncthreads();
 	// write result for this block to global mem
 	if (tid == 0) { atomicAdd(g_odata, sdata[tid]); }
 
@@ -60,7 +71,7 @@ __global__ void cuda_sumMatrix(T* martrix, T* out, int y_size, int x_size, int s
 	int location = blockIdx.x*blockDim.x + threadIdx.x;
 	int totalSize = x_size * y_size;
 
-	__shared__ double sdata[TPB_X_TPB];
+	__shared__ T sdata[TPB_X_TPB];
 	if (location >= totalSize) {
 		sdata[tid] = 0;
 		return;
@@ -72,19 +83,20 @@ __global__ void cuda_sumMatrix(T* martrix, T* out, int y_size, int x_size, int s
 	if (tid < 256) { sdata[tid] += sdata[tid + 256]; } __syncthreads();
 	if (tid < 128) { sdata[tid] += sdata[tid + 128]; } __syncthreads();
 	if (tid < 64) { sdata[tid] += sdata[tid + 64]; } __syncthreads();
-	if (tid < 32) { sdata[tid] += sdata[tid + 32]; }__syncthreads();
-	if (tid < 16) { sdata[tid] += sdata[tid + 16]; }__syncthreads();
-	if (tid < 8) { sdata[tid] += sdata[tid + 8]; }__syncthreads();
-	if (tid < 4) { sdata[tid] += sdata[tid + 4]; }__syncthreads();
-	if (tid < 2) { sdata[tid] += sdata[tid + 2]; }__syncthreads();
-	if (tid < 1) { sdata[tid] += sdata[tid + 1]; }__syncthreads();
+	if (tid < 32) warpReduce(sdata, tid); __syncthreads();
+	//if (tid < 32) { sdata[tid] += sdata[tid + 32]; }__syncthreads();
+	//if (tid < 16) { sdata[tid] += sdata[tid + 16]; }__syncthreads();
+	//if (tid < 8) { sdata[tid] += sdata[tid + 8]; }__syncthreads();
+	//if (tid < 4) { sdata[tid] += sdata[tid + 4]; }__syncthreads();
+	//if (tid < 2) { sdata[tid] += sdata[tid + 2]; }__syncthreads();
+	//if (tid < 1) { sdata[tid] += sdata[tid + 1]; }__syncthreads();
 	if (tid == 0) { atomicAdd(&out[shift], sdata[tid]); }
 }
 
 #pragma region ProcImage
 
 
-__device__ double d_cuda_defcan_vars[3];
+__device__ double d_cuda_defcan_vars[4];
 __device__ double d_cuda_defcan_vars_array[3 * ROW * COL];
 double *d_cuda_defcan_vars_ptr;
 double *d_cuda_defcan_vars_array_ptr;

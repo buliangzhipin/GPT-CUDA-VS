@@ -104,10 +104,10 @@ void load_image_file(char *filename, unsigned char* image1, int x_size1, int y_s
 			sscanf(buffer, "%d", &max_gray);
 		}
 	}
-	if (x_size1 > ROW2 || y_size1 > COL2)
+	if (x_size1 > COL2 || y_size1 > ROW2)
 	{
-		printf("     Image size exceeds %d x %d\n\n",
-			ROW2, COL2);
+		printf("     Image size exceeds %d x %d and is %d x %d\n\n",
+			ROW2, COL2,x_size1,y_size1);
 		printf("     Please use smaller images!\n\n");
 		exit(1);
 	}

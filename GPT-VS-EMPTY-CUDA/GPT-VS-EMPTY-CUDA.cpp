@@ -146,12 +146,12 @@ int main()
 			dnn = WNNDEsHoGD * sHoGpatInte(sHoG1, inteAng);
 
 			/* update correlation */
-			//new_cor1 = 0.0;
-			//getsHoGAndCan(sHoG1, g_can1);
-			//for (int y = margine; y < ROW - margine; y++)
-			//	for (int x = margine; x < COL - margine; x++)
-			//		new_cor1 += g_can1[y*COL+x] * g_can2[y*COL+x];		
-			//printf("iter = %d, new col. = %f dnn = %f   (d2 = %f) \n", iter, new_cor1, dnn, d2);
+			new_cor1 = 0.0;
+			getsHoGAndCan(sHoG1, g_can1);
+			for (int y = margine; y < ROW - margine; y++)
+				for (int x = margine; x < COL - margine; x++)
+					new_cor1 += g_can1[y*COL+x] * g_can2[y*COL+x];		
+			printf("iter = %d, new col. = %f dnn = %f   (d2 = %f) \n", iter, new_cor1, dnn, d2);
 		}
 		end = clock();		//程序结束用时
 		double endtime = (double)(end - start) / CLOCKS_PER_SEC;

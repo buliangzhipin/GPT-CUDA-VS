@@ -33,7 +33,7 @@ void setGPUSize(int blockX, int blockY, int threadX, int threadY)
 }
 
 template<typename T>
-__device__ void warpReduce(volatile T* sdata, T* g_odata,int tid) {
+__device__ void warpReduce(volatile T* sdata, int tid) {
 	sdata[tid] += sdata[tid + 32];
 	sdata[tid] += sdata[tid + 16];
 	sdata[tid] += sdata[tid + 8];

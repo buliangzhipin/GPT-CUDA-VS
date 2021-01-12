@@ -126,3 +126,24 @@ void load_image_file(char *filename, unsigned char* image1, int x_size1, int y_s
 	}
 	fclose(fp);
 }
+
+void save_image_file(char *filename, unsigned char* image2, int x_size2, int y_size2) {
+	/* Output of image2[ ][ ], x_size2, y_size2 */
+	/* into pgm file with header & body information */
+	FILE *fp; /* File pointer */
+	int x, y; /* Loop variable */
+
+	fp = fopen(filename, "wb");
+	/* output of pgm file header information */
+	fputs("P5\n", fp);
+	fputs("# Created by Image Processing\n", fp);
+	fprintf(fp, "%d %d\n", x_size2, y_size2);
+	fprintf(fp, "%d\n", MAX_BRIGHTNESS);
+	/* Output of image data */
+	for (y = 0; y < y_size2; y++) {
+		for (x = 0; x < x_size2; x++) {
+			fputc(image2[y*x_size2 + x], fp);
+		}
+	}
+	fclose(fp);
+}

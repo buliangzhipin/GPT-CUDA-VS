@@ -303,6 +303,7 @@ void bilinearInitial()
 {
 	gpuErrchk(cudaGetSymbolAddress(&d_gpt_ptr, d_gpt));
 	gpuErrchk(cudaGetSymbolAddress(&d_image2_ptr, d_image2));
+	gpuErrchk(cudaGetSymbolAddress(&d_image1_ptr, d_image1));
 	gpuStop()
 }
 
@@ -374,6 +375,13 @@ void cuda_bilinear_normal_inverse_projection(double gpt[3][3], int x_size1, int 
 	cuda_calc_bilinear_normal_inverse_projection << <numBlock, numThread >> > (x_size1, y_size1, x_size2, y_size2);
 }
 
+void getImage(unsigned char* image2)
+{
+	if (isGPU == 1)
+	{
+		cudaMemcpy(image2, d_image1_ptr, ROW* COL  * sizeof(unsigned char), cudaMemcpyDeviceToHost);
+	}
+}
 #pragma endregion Bilinear
 
 

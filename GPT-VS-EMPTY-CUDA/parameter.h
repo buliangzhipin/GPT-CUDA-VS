@@ -48,9 +48,9 @@
 
 /* initial conditions */
 #define NONELEMENT /* use non-elemental matrix as initial condition */
-#define ZOOM 0.8   /* Zoom rate for initial matrix */
+#define ZOOM 1.7   /* Zoom rate for initial matrix */
 #define BETA 1.0   /* Relation between alpha and beta */
-#define ROT 45.0    /* Rotation angle for initial matrix */
+#define ROT 0.0    /* Rotation angle for initial matrix */
 #define B1 0.0     /*  */
 #define B2 0.0     /*  */
 /* initial conditions */
@@ -70,7 +70,7 @@
 
 #define MARGINE 0   /* Margine size              */
 #define CANMARGIN 0 /* Margine size for calculate crr */
-#define TsIMAGE "sample_boat/img6_small2"
+#define TsIMAGE "sample_boat/img2_small2"
 #define RgIMAGE "sample_boat/img1_small"
 #define CENTERCORRELATION
 /* acc: 3.5,

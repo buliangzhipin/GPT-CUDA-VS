@@ -156,6 +156,8 @@ int main()
 		end = clock();		//程序结束用时
 		double endtime = (double)(end - start) / CLOCKS_PER_SEC;
 		cout << "Total time:" << endtime * 1000 << "ms" << endl;	//ms为单位
+		sprintf(fileName, "%s/%s_test.pgm", IMGDIR, TsIMAGE);
+		save_image_file(fileName, image2, COL, ROW);
 
 
 		for (int i = 0; i < 3; i++)

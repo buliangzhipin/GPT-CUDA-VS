@@ -43,9 +43,9 @@
 
 /* initial conditions */
 #define NONELEMENT /* use non-elemental matrix as initial condition */
-#define ZOOM 0.8   /* Zoom rate for initial matrix */
+#define ZOOM 1.4   /* Zoom rate for initial matrix */
 #define BETA 1.0   /* Relation between alpha and beta */
-#define ROT 45.0    /* Rotation angle for initial matrix */
+#define ROT 90.0    /* Rotation angle for initial matrix */
 #define B1 0.0     /*  */
 #define B2 0.0     /*  */
 
@@ -61,7 +61,7 @@
 
 #define MARGINE 0   /* Margine size              */
 #define CANMARGIN 0 /* Margine size for calculate crr */
-#define TsIMAGE "sample_boat/img6_small2"
+#define TsIMAGE "sample_boat/img4_small2"
 #define RgIMAGE "sample_boat/img1_small"
 #define CENTERCORRELATION
 /* acc: 3.5,
@@ -72,4 +72,66 @@
  * img1_small to img5_small2 --> ZOOM = 1.1;
  * img1_small to img6_small2 --> ZOOM = 0.8, ROT = 45.0; (acc ZOOM = 0.8)
  */
+#endif
+
+#if DATATYPE == 3
+#define COL 160          /* Horizontal size of image  */
+#define ROW 128          /* Vertical size of image    */
+#define COL2 320          /* Horizontal size of image  */
+#define ROW2 256          /* Vertical size of image    */
+#define CX  80
+#define CY  64
+#define CX2 160
+#define CY2 128
+
+#define MARGINE 0				/* Margine size              */
+#define CANMARGIN 0			/* Margine size for calculate crr */
+#define TsIMAGE  "sample_graf/img2_small2"
+#define RgIMAGE  "sample_graf/img1_small"
+#define CENTERCORRELATION
+ /*
+  * Memo of the parameter set
+  * img1_small to img2_small2 --> ZOOM = 1.6;
+  * img1_small to img3_small2 --> ZOOM = 1.6;
+  * img1_small to img4_small2 --> ZOOM = 1.6;
+  * img1_small to img5_small2 --> ZOOM = 1.0;
+  * img1_small to img6_small2 --> ZOOM = 0.9, ROT = -45.0, BETA = 2, B2 = 20;
+  */
+
+#endif
+
+#if DATATYPE == 4		/* 10, 100 */
+#define COL 200          /* Horizontal size of image  */
+#define ROW 140          /* Vertical size of image    */
+#define COL2 400          /* Horizontal size of image  */
+#define ROW2 280          /* Vertical size of image    */
+#define CX  100
+#define CY  70
+#define CX2 200
+#define CY2 140
+
+#define MARGINE 0				/* Margine size              */
+#define CANMARGIN 0			/* Margine size for calculate crr */
+#define TsIMAGE  "sample_tree/img5_small2"
+#define RgIMAGE  "sample_tree/img1_small"
+#define CENTERCORRELATION
+
+#endif
+
+#if DATATYPE == 7		/* 10, 100 */
+#define COL 200          /* Horizontal size of image  */
+#define ROW 140          /* Vertical size of image    */
+#define COL2 400          /* Horizontal size of image  */
+#define ROW2 280          /* Vertical size of image    */
+#define CX  100
+#define CY  70
+#define CX2 200
+#define CY2 140
+
+#define MARGINE 0				/* Margine size              */
+#define CANMARGIN 0			/* Margine size for calculate crr */
+#define TsIMAGE  "sample_bikes/img6_small2"
+#define RgIMAGE  "sample_bikes/img1_small"
+#define CENTERCORRELATION
+
 #endif

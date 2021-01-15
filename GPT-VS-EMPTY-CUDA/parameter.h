@@ -3,7 +3,7 @@
 #define isGPU 0
 
 
-#define DATATYPE 2
+#define DATATYPE 3
 #define IMGDIR "."
 #define MAXITER 100 // Maximum iteration times
 #define MAXNR 5     // Maximum Newton-Raphson iterations
@@ -43,11 +43,11 @@
 
 /* initial conditions */
 #define NONELEMENT /* use non-elemental matrix as initial condition */
-#define ZOOM 1.4   /* Zoom rate for initial matrix */
-#define BETA 1.0   /* Relation between alpha and beta */
-#define ROT 90.0    /* Rotation angle for initial matrix */
+#define ZOOM 0.9  /* Zoom rate for initial matrix */
+#define BETA 2.0   /* Relation between alpha and beta */
+#define ROT -45.0    /* Rotation angle for initial matrix */
 #define B1 0.0     /*  */
-#define B2 0.0     /*  */
+#define B2 20.0     /*  */
 
 #if DATATYPE == 2 /* 20 300 2.0 */
 #define COL 170   /* Horizontal size of image  */
@@ -86,14 +86,14 @@
 
 #define MARGINE 0				/* Margine size              */
 #define CANMARGIN 0			/* Margine size for calculate crr */
-#define TsIMAGE  "sample_graf/img2_small2"
+#define TsIMAGE  "sample_graf/img6_small2"
 #define RgIMAGE  "sample_graf/img1_small"
 #define CENTERCORRELATION
  /*
   * Memo of the parameter set
   * img1_small to img2_small2 --> ZOOM = 1.6;
   * img1_small to img3_small2 --> ZOOM = 1.6;
-  * img1_small to img4_small2 --> ZOOM = 1.6;
+  * img1_small to img4_small2 --> ZOOM = 1.6 rot=45.0;
   * img1_small to img5_small2 --> ZOOM = 1.0;
   * img1_small to img6_small2 --> ZOOM = 0.9, ROT = -45.0, BETA = 2, B2 = 20;
   */
@@ -130,8 +130,26 @@
 
 #define MARGINE 0				/* Margine size              */
 #define CANMARGIN 0			/* Margine size for calculate crr */
-#define TsIMAGE  "sample_bikes/img6_small2"
+#define TsIMAGE  "sample_bikes/img5_small2"
 #define RgIMAGE  "sample_bikes/img1_small"
+#define CENTERCORRELATION
+
+#endif
+
+#if DATATYPE == 6		/* 10 100 */
+#define COL 180          /* Horizontal size of image  */
+#define ROW 120          /* Vertical size of image    */
+#define COL2 360          /* Horizontal size of image  */
+#define ROW2 240          /* Vertical size of image    */
+#define CX  90
+#define CY  60
+#define CX2 180
+#define CY2 120
+
+#define MARGINE 0				/* Margine size              */
+#define CANMARGIN 0			/* Margine size for calculate crr */
+#define TsIMAGE  "sample_leuven/img5_small2"
+#define RgIMAGE  "sample_leuven/img1_small"
 #define CENTERCORRELATION
 
 #endif
